@@ -374,6 +374,18 @@ const POSC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
 let S=null, filter='ALL', q='';
 
 const $=id=>document.getElementById(id);
+
+// Writing innerHTML restarts every CSS animation inside it, so a poll loop that
+// rewrites unchanged markup makes the cards flash. Only write on real change.
+const _last={};
+function setHTML(el,html,key){
+  if(_last[key]===html) return false;
+  _last[key]=html; el.innerHTML=html; return true;
+}
+function setText(el,txt,key){
+  if(_last[key]===txt) return false;
+  _last[key]=txt; el.textContent=txt; return true;
+}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 async function api(path,body){
@@ -382,16 +394,16 @@ async function api(path,body){
   const r=await fetch(path,o);
   return r.json();
 }
-async function refresh(){ render(await api('/api/state')); }
+async function refresh(){ render(await api('/api/state')); schedule(cadence()); }
 
 /* ───────── render ───────── */
 function render(s){
   if(!s) return; S=s;
-  $('subline').textContent=`${s.myteam} · Slot ${s.myslot} of ${s.teams||10}`;
-  $('hRound').textContent=s.round;
-  $('hPick').textContent=s.overall;
-  $('hLeft').textContent=s.picks_left_for_me;
-  $('availN').textContent=s.available_count;
+  $('subline').textContent=`${s.myteam} · Slot ${s.myslot} of ${s.team_count||10}`;
+  setText($('hRound'),s.round,'hR');
+  setText($('hPick'),s.overall,'hP');
+  setText($('hLeft'),s.picks_left_for_me,'hL');
+  setText($('availN'),s.available_count,'aN');
   $('lp').textContent=s.lineup_points.toFixed(0);
 
   // practice mode chrome
@@ -443,10 +455,10 @@ function render(s){
 function renderRecs(s){
   const el=$('recs');
   if(!s.recommendations.length){
-    el.innerHTML='<div class="empty">No recommendations — your roster is full.</div>'; return;
+    setHTML(el,'<div class="empty">No recommendations — your roster is full.</div>','recs'); return;
   }
   const max=Math.max(...s.recommendations.map(r=>Math.abs(r.score)),1);
-  el.innerHTML=s.recommendations.map(r=>{
+  const html=s.recommendations.map(r=>{
     const acc=POSC[r.pos]||'var(--dim)';
     const w=Math.max(4,Math.min(100,Math.abs(r.score)/max*100));
     return `<div class="rec ${r.rank===1?'top':''}" style="--acc:${acc}">
@@ -469,18 +481,19 @@ function renderRecs(s){
       </div>
     </div>`;
   }).join('');
+  setHTML(el,html,'recs');
 }
 
 function renderSheet(s){
   const c=$('cmp');
   if(s.compare){
     c.className='cmp '+(s.compare.agree?'agree':'differ');
-    c.innerHTML=(s.compare.agree?'✓ ':'⚑ ')+esc(s.compare.text);
-  }else{ c.className='cmp'; c.textContent='—'; }
+    setHTML(c,(s.compare.agree?'✓ ':'⚑ ')+esc(s.compare.text),'cmp');
+  }else{ c.className='cmp'; setText(c,'—','cmp'); }
   const mineTop=s.recommendations.length?s.recommendations[0].player:null;
   const el=$('sheet');
-  if(!s.sheet||!s.sheet.length){ el.innerHTML='<div class="empty">No workbook-ranked players left.</div>'; return; }
-  el.innerHTML=s.sheet.map(p=>{
+  if(!s.sheet||!s.sheet.length){ setHTML(el,'<div class="empty">No workbook-ranked players left.</div>','sheet'); return; }
+  const html=s.sheet.map(p=>{
     const same=p.player===mineTop;
     return `<div class="srow ${same?'same':''}" style="--acc:${POSC[p.pos]}">
       <span class="wbrk">#${p.wb_rank}</span>
@@ -494,6 +507,7 @@ function renderSheet(s){
         <span>proj <b>${p.fp.toFixed(0)}</b></span>
       </span></div>`;
   }).join('');
+  setHTML(el,html,'sheet');
 }
 
 function renderSlots(s){
@@ -512,18 +526,19 @@ function renderSlots(s){
   ['RB','WR','TE'].forEach(pos=>by[pos].slice(used[pos]).forEach(p=>bench.push(p)));
   bench.sort((a,b)=>b.fp-a.fp);
   for(let i=0;i<2;i++) out.push({lab:'FLEX',p:bench[i]});
-  $('slots').innerHTML=out.map(o=>{
+  const html=out.map(o=>{
     const acc=o.p?(POSC[o.p.pos]||'var(--dim)'):'var(--dim)';
     return `<div class="slot ${o.p?'filled':'empty'}">
       <div class="p" style="color:${o.p?acc:'var(--dim)'}">${o.lab}</div>
       <div class="n">${o.p?esc(o.p.player):'open'}</div></div>`;
   }).join('');
+  setHTML($('slots'),html,'slots');
 }
 
 function renderRoster(s){
   const el=$('roster');
-  if(!s.my_roster.length){ el.innerHTML='<div class="empty">No players yet.</div>'; return; }
-  el.innerHTML=s.my_roster.map(p=>{
+  if(!s.my_roster.length){ setHTML(el,'<div class="empty">No players yet.</div>','roster'); return; }
+  const html=s.my_roster.map(p=>{
     const clash=(s.byes[p.bye]||0)>=2;
     return `<div class="rrow ${clash?'clash':''}" style="--acc:${POSC[p.pos]}">
       <span class="tag">${p.pos}</span>
@@ -531,6 +546,7 @@ function renderRoster(s){
       <span class="by">${esc(p.tm)} · bye ${p.bye}</span>
       <span class="pt tabnum">${p.fp.toFixed(0)}</span></div>`;
   }).join('');
+  setHTML(el,html,'roster');
 }
 
 function renderBoard(s){
@@ -539,7 +555,7 @@ function renderBoard(s){
     (filter==='ALL'||p.pos===filter) &&
     (!t||p.player.toLowerCase().includes(t))
   ).slice(0,140);
-  $('board').innerHTML=rows.length?rows.map(p=>
+  const html=rows.length?rows.map(p=>
     `<div class="prow" style="--acc:${POSC[p.pos]}">
       <span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
       <span class="nm">${esc(p.player)}</span>
@@ -552,18 +568,20 @@ function renderBoard(s){
         <button class="xs" onclick="pick('${esc(p.player)}',false)">✕ taken</button>
       </span>
     </div>`).join(''):'<div class="empty">Nobody matches that search.</div>';
+  setHTML($('board'),html,'board');
 }
 
 function renderTick(s){
   const el=$('tick');
-  if(!s.log.length){ el.innerHTML='<div class="empty">No picks recorded yet.</div>'; return; }
-  el.innerHTML=s.log.map(p=>
+  if(!s.log.length){ setHTML(el,'<div class="empty">No picks recorded yet.</div>','tick'); return; }
+  const html=s.log.map(p=>
     `<div class="tk ${p.mine?'mine':''}" style="--acc:${POSC[p.pos]}">
       <span class="o tabnum">${p.overall}</span>
       <span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
       <span class="nm">${esc(p.player)}</span>
       <span class="ow">${esc(p.mine?'YOU':p.owner)}</span>
     </div>`).join('');
+  setHTML(el,html,'tick');
 }
 
 /* ───────── actions ───────── */
@@ -635,12 +653,22 @@ document.addEventListener('keydown',e=>{
 });
 
 refresh();
-let tick=3000;
-setInterval(()=>{
-  const fast=S&&S.sim&&S.sim.on&&S.sim.auto&&!S.on_clock;
-  if(fast!==(tick===700)) tick=fast?700:3000;
-  refresh();
-},700);   // ESPN polling cadence is server-side; this only refreshes the view
+// Poll fast only while rivals are actively picking; otherwise stay calm. The
+// ESPN sync cadence is server-side — this interval only refreshes the view.
+let timer=null, curMs=0;
+function schedule(ms){
+  if(ms===curMs) return;
+  curMs=ms; if(timer) clearInterval(timer);
+  timer=setInterval(refresh,ms);
+}
+function cadence(){
+  if(!S) return 2000;
+  if(S.on_clock) return 4000;                       // nothing moves while you decide
+  if(S.sim&&S.sim.on&&S.sim.auto) return 900;       // watching a practice draft
+  if(S.sync&&S.sync.on) return 2500;                // live draft
+  return 4000;                                      // manual, idle
+}
+schedule(2000);
 </script>
 </body>
 </html>

@@ -282,7 +282,8 @@ class State:
             holes=holes, byes=byes,
             log=list(reversed(self.log[-40:])),
             sim=dict(on=self.sim_on, auto=self.sim_auto, delay=SIM_DELAY),
-            teams=[dict(slot=sl, name=DATA["teamnames"].get(str(sl), f"Slot {sl}"),
+            team_count=DATA["teams"],
+            team_list=[dict(slot=sl, name=DATA["teamnames"].get(str(sl), f"Slot {sl}"),
                         n=len(self.rosters[sl]),
                         mine=(sl == MY_SLOT))
                    for sl in range(1, DATA["teams"] + 1)],
