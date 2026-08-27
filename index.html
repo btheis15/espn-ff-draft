@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Draft Room · Bad News Bears</title>
+<style>
+:root{
+  --bg:#07090e; --bg2:#0b0f17; --panel:#111725; --panel2:#151d2e;
+  --line:#1f2a3f; --line2:#2a3854;
+  --txt:#eaf0fb; --dim:#8798b5; --dim2:#5d6d8a;
+  --qb:#a78bfa; --rb:#34d399; --wr:#fbbf24; --te:#22d3ee;
+  --gold:#ffd166; --hot:#ff5470; --good:#2dd4a7;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1100px 620px at 12% -10%, #16203a 0%, transparent 62%),
+    radial-gradient(900px 520px at 100% 0%, #1a1430 0%, transparent 58%),
+    var(--bg);
+  color:var(--txt);
+  font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  padding:16px 18px 40px;
+  min-height:100%;
+}
+.tabnum{font-variant-numeric:tabular-nums}
+
+/* ───────────── header ───────────── */
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:42px;height:42px;border-radius:12px;flex:none;
+  background:linear-gradient(145deg,#ffd166,#ff8c42 55%,#ff5470);
+  display:grid;place-items:center;font-weight:900;font-size:17px;color:#1a1206;
+  box-shadow:0 6px 22px rgba(255,140,66,.34), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.brand h1{font-size:19px;letter-spacing:-.35px;font-weight:750;line-height:1.1}
+.brand .sub{font-size:11px;color:var(--dim);letter-spacing:.32px;text-transform:uppercase;font-weight:600}
+.hspace{flex:1}
+.hstat{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:12px;padding:7px 14px;text-align:center;min-width:74px;
+}
+.hstat .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);font-weight:700}
+.hstat .v{font-size:19px;font-weight:800;letter-spacing:-.5px;margin-top:1px}
+.btn{
+  border:1px solid var(--line2);background:linear-gradient(180deg,#1a2338,#131b2c);
+  color:var(--txt);border-radius:11px;padding:9px 15px;font-size:12.5px;font-weight:650;
+  cursor:pointer;transition:.16s;font-family:inherit;white-space:nowrap;
+}
+.btn:hover{border-color:#3d5480;transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,0,0,.42)}
+.btn:active{transform:translateY(0)}
+.btn.sync{background:linear-gradient(180deg,#0f3d33,#0a2a24);border-color:#1c6b57;color:#8df0d0}
+.btn.sync.on{background:linear-gradient(180deg,#12513f,#0c3830);border-color:var(--good);
+  box-shadow:0 0 0 1px rgba(45,212,167,.3),0 0 22px rgba(45,212,167,.22)}
+.btn.ghost{background:transparent}
+
+/* status pill */
+.pill{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);
+  background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim2);flex:none}
+.dot.live{background:var(--good);box-shadow:0 0 0 0 rgba(45,212,167,.75);animation:ping 1.9s infinite}
+.dot.bad{background:var(--hot)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(45,212,167,.6)}70%{box-shadow:0 0 0 9px rgba(45,212,167,0)}100%{box-shadow:0 0 0 0 rgba(45,212,167,0)}}
+
+/* ───────────── layout ───────────── */
+.grid{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(300px,.85fr);gap:15px}
+@media(max-width:1120px){.grid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,rgba(21,29,46,.92),rgba(15,21,34,.92));
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.card>h2{font-size:10.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);
+  font-weight:750;padding:12px 16px 0}
+
+/* ───────────── practice bar ───────────── */
+.btn.simb{background:linear-gradient(180deg,#33215c,#241741);border-color:#5b3fa0;color:#d3c2ff}
+.btn.simb.on{border-color:#a78bfa;box-shadow:0 0 0 1px rgba(167,139,250,.35),0 0 22px rgba(167,139,250,.25)}
+.simbar{display:none;align-items:center;gap:12px;margin-bottom:12px;padding:9px 14px;
+  border-radius:12px;border:1px solid rgba(167,139,250,.45);
+  background:linear-gradient(100deg,rgba(51,33,92,.85),rgba(26,18,46,.85));
+  animation:rise .3s both}
+.simbar.on{display:flex;flex-wrap:wrap}
+.simtag{font-size:9.5px;font-weight:850;letter-spacing:1px;padding:3px 8px;border-radius:6px;
+  background:linear-gradient(145deg,#a78bfa,#7c5cf0);color:#140b2a;flex:none}
+.simtxt{font-size:12px;color:#c7b8f0}
+body.sim{background:
+  radial-gradient(1100px 620px at 12% -10%, #2a1c4d 0%, transparent 62%),
+  radial-gradient(900px 520px at 100% 0%, #1a1430 0%, transparent 58%), var(--bg)}
+body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);color:#150c2b;
+  box-shadow:0 6px 22px rgba(139,92,246,.4), inset 0 1px 0 rgba(255,255,255,.4)}
+
+/* ───────────── clock banner ───────────── */
+.clock{
+  border-radius:var(--r);padding:16px 20px;margin-bottom:15px;
+  border:1px solid var(--line);background:linear-gradient(115deg,#141c2e,#101725);
+  display:flex;align-items:center;gap:20px;position:relative;overflow:hidden;
+}
+.clock.hot{
+  border-color:rgba(255,209,102,.55);
+  background:linear-gradient(115deg,#3a2c0c,#241a07 62%,#141020);
+  box-shadow:0 0 0 1px rgba(255,209,102,.2),0 12px 46px rgba(255,170,40,.2);
+}
+.clock .ring{width:66px;height:66px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:24px;font-weight:900;letter-spacing:-1px;
+  background:conic-gradient(from -90deg,#ffd166,#ff8c42,#ff5470,#ffd166);color:#180f04;
+  position:relative}
+.clock.hot .ring{animation:spinpulse 2.6s ease-in-out infinite}
+@keyframes spinpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.055)}}
+.clock .ring span{background:#0d1220;width:56px;height:56px;border-radius:50%;
+  display:grid;place-items:center;color:var(--gold);font-size:22px}
+.clock:not(.hot) .ring{background:linear-gradient(145deg,#2a3854,#1b2438)}
+.clock:not(.hot) .ring span{color:var(--dim)}
+.clock .big{font-size:26px;font-weight:820;letter-spacing:-.7px;line-height:1.12}
+.clock .small{font-size:12.5px;color:var(--dim);margin-top:3px}
+.clock.hot .small{color:#e8cf9a}
+
+/* ───────────── recommendation cards ───────────── */
+.recs{display:flex;flex-direction:column;gap:11px;padding:12px 14px 15px}
+.rec{
+  border-radius:13px;padding:14px 16px;border:1px solid var(--line2);
+  background:linear-gradient(150deg,rgba(30,41,64,.9),rgba(17,23,37,.95));
+  position:relative;overflow:hidden;transition:.2s;
+  animation:rise .34s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.rec:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(0,0,0,.44)}
+.rec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc)}
+.rec.top{border-color:rgba(255,209,102,.42);
+  background:linear-gradient(150deg,rgba(52,44,20,.94),rgba(21,25,38,.96));
+  box-shadow:0 0 0 1px rgba(255,209,102,.14),0 10px 34px rgba(0,0,0,.4)}
+.rec .head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.rnk{width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-size:13px;font-weight:850;background:#20293d;color:var(--dim)}
+.rec.top .rnk{background:linear-gradient(145deg,var(--gold),#ff9e3d);color:#1c1405;
+  box-shadow:0 3px 12px rgba(255,170,60,.4)}
+.rec .nm{font-size:19px;font-weight:790;letter-spacing:-.4px}
+.rec.top .nm{font-size:22px}
+.badge{font-size:10px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
+  background:var(--acc);color:#080c14}
+.meta{font-size:11.5px;color:var(--dim);font-weight:600}
+.spacer{flex:1}
+.ptbox{text-align:right;flex:none}
+.ptbox .n{font-size:21px;font-weight:820;letter-spacing:-.6px}
+.ptbox .l{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);font-weight:700}
+.edge{margin:11px 0 3px;display:flex;align-items:center;gap:9px}
+.edge .bar{flex:1;height:6px;border-radius:99px;background:#1a2234;overflow:hidden}
+.edge .bar i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--acc),rgba(255,255,255,.85));
+  transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.edge .lab{font-size:10.5px;color:var(--dim);font-weight:700;white-space:nowrap}
+.edge .lab b{color:var(--txt)}
+.why{list-style:none;margin-top:9px;display:flex;flex-direction:column;gap:5px}
+.why li{font-size:12.4px;color:#c3d0e6;padding-left:16px;position:relative;line-height:1.42}
+.why li::before{content:"";position:absolute;left:3px;top:6.5px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc);opacity:.85}
+.rec .act{margin-top:11px;display:flex;gap:8px}
+.mini{border:1px solid var(--line2);background:#182134;color:var(--txt);border-radius:9px;
+  padding:7px 12px;font-size:11.5px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit}
+.mini:hover{border-color:#44598a}
+.mini.pri{background:linear-gradient(180deg,var(--gold),#ff9e3d);color:#1a1204;border-color:transparent}
+.mini.pri:hover{filter:brightness(1.07)}
+
+/* ───────────── roster ───────────── */
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:12px 16px 4px}
+.slot{background:#0e1421;border:1px solid var(--line);border-radius:10px;padding:7px 9px;min-height:46px}
+.slot .p{font-size:9px;font-weight:850;letter-spacing:.6px;color:var(--dim)}
+.slot .n{font-size:11.5px;font-weight:680;margin-top:2px;line-height:1.25}
+.slot.empty{border-style:dashed;border-color:#33415f}
+.slot.empty .n{color:#54637f;font-style:italic}
+.slot.filled{background:linear-gradient(160deg,#132033,#0e1421)}
+.rlist{padding:6px 16px 14px}
+.rrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.045);font-size:12.5px}
+.rrow:last-child{border-bottom:none}
+.tag{font-size:9px;font-weight:850;padding:2px 5px;border-radius:5px;background:var(--acc);color:#080c14;flex:none;width:24px;text-align:center}
+.rrow .nm{flex:1;font-weight:640}
+.rrow .by{color:var(--dim);font-size:11px}
+.rrow .pt{font-weight:750}
+.rrow.clash .by{color:var(--hot);font-weight:750}
+.foot{display:flex;justify-content:space-between;padding:11px 16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);background:rgba(0,0,0,.2)}
+.foot b{color:var(--txt);font-size:14px}
+
+/* ───────────── sheet comparison ───────────── */
+.cmp{margin:10px 14px 0;padding:9px 12px;border-radius:10px;font-size:12.4px;line-height:1.5;
+  border:1px solid var(--line2);background:rgba(255,255,255,.03)}
+.cmp.agree{border-color:rgba(45,212,167,.4);background:rgba(45,212,167,.09);color:#a9f0d8}
+.cmp.differ{border-color:rgba(255,209,102,.38);background:rgba(255,209,102,.08);color:#f0dcaf}
+.cmp b{color:#fff}
+.sheetrows{padding:9px 14px 13px;display:flex;flex-direction:column;gap:6px}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:10px;
+  border:1px solid var(--line);background:rgba(255,255,255,.022);font-size:13px}
+.srow .wbrk{width:34px;flex:none;text-align:center;font-size:10px;font-weight:800;color:var(--dim);
+  background:#1a2235;border-radius:6px;padding:3px 0}
+.srow .nm{flex:1;font-weight:660}
+.srow .nums{display:flex;gap:12px;font-size:10.5px;color:var(--dim);white-space:nowrap}
+.srow .nums b{color:var(--txt);font-weight:700}
+.srow.same{border-color:rgba(45,212,167,.42);background:rgba(45,212,167,.07)}
+.srow .flag{font-size:9px;font-weight:850;letter-spacing:.4px;padding:2px 6px;border-radius:5px;
+  background:var(--good);color:#062018}
+
+/* ───────────── board ───────────── */
+.tools{display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap;align-items:center}
+input[type=search]{flex:1;min-width:150px;background:#0c1220;border:1px solid var(--line2);
+  color:var(--txt);border-radius:10px;padding:9px 13px;font-size:13px;font-family:inherit}
+input[type=search]:focus{outline:none;border-color:#456099;box-shadow:0 0 0 3px rgba(69,96,153,.2)}
+.chip{border:1px solid var(--line2);background:#131b2c;color:var(--dim);border-radius:9px;
+  padding:7px 11px;font-size:11.5px;font-weight:750;cursor:pointer;transition:.15s;font-family:inherit}
+.chip.on{background:var(--acc,#2a3854);color:#080c14;border-color:transparent}
+.rows{max-height:430px;overflow-y:auto}
+.prow{display:flex;align-items:center;gap:10px;padding:7px 16px;font-size:13px;
+  border-bottom:1px solid rgba(255,255,255,.04);cursor:default;transition:.12s}
+.prow:hover{background:rgba(255,255,255,.04)}
+.prow .nm{flex:1;font-weight:640}
+.prow .tm{color:var(--dim);font-size:11px;width:34px}
+.prow .by{color:var(--dim2);font-size:11px;width:26px;text-align:right}
+.prow .pt{font-weight:750;width:44px;text-align:right}
+.prow .vv{color:var(--dim2);font-size:10.5px;width:66px;text-align:right}
+.prow .b{opacity:0;transition:.14s;display:flex;gap:5px}
+.prow:hover .b{opacity:1}
+.xs{border:1px solid var(--line2);background:#1a2336;color:var(--dim);border-radius:7px;
+  padding:4px 8px;font-size:10.5px;font-weight:750;cursor:pointer;font-family:inherit}
+.xs:hover{color:var(--txt);border-color:#44598a}
+.xs.me{background:#123a30;border-color:#1f6b56;color:#7fe9c8}
+
+/* ticker */
+.tick{max-height:196px;overflow-y:auto;padding:4px 0}
+.tk{display:flex;align-items:center;gap:9px;padding:6px 16px;font-size:12px;
+  border-bottom:1px solid rgba(255,255,255,.035)}
+.tk .o{color:var(--dim2);font-size:10.5px;width:26px;font-weight:700}
+.tk .nm{flex:1;font-weight:620}
+.tk .ow{color:var(--dim);font-size:10.5px;max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk.mine{background:rgba(45,212,167,.09)}
+.tk.mine .ow{color:var(--good);font-weight:750}
+
+/* modal */
+.mask{position:fixed;inset:0;background:rgba(4,6,11,.82);backdrop-filter:blur(7px);
+  display:none;place-items:center;z-index:50;padding:20px}
+.mask.on{display:grid}
+.modal{background:linear-gradient(180deg,#141c2e,#0e1421);border:1px solid var(--line2);
+  border-radius:18px;padding:24px;width:min(560px,100%);box-shadow:0 30px 80px rgba(0,0,0,.6);
+  max-height:90vh;overflow-y:auto}
+.modal h3{font-size:18px;font-weight:780;letter-spacing:-.3px;margin-bottom:5px}
+.modal p{font-size:12.5px;color:var(--dim);margin-bottom:15px;line-height:1.55}
+label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--dim);font-weight:750;margin:13px 0 5px}
+input[type=text],input[type=password]{width:100%;background:#0a0f1b;border:1px solid var(--line2);
+  color:var(--txt);border-radius:10px;padding:10px 13px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
+input:focus{outline:none;border-color:#456099}
+.steps{background:#0b1120;border:1px solid var(--line);border-radius:11px;padding:13px 15px;
+  font-size:12px;color:#b7c5dd;line-height:1.62;margin-bottom:4px}
+.steps b{color:var(--txt)}
+.steps code{background:#182238;padding:1px 5px;border-radius:4px;font-size:11px}
+.mrow{display:flex;gap:9px;margin-top:19px}
+.note{font-size:11.5px;padding:9px 12px;border-radius:9px;margin-top:13px;line-height:1.5}
+.note.ok{background:rgba(45,212,167,.12);border:1px solid rgba(45,212,167,.3);color:#8df0d0}
+.note.bad{background:rgba(255,84,112,.12);border:1px solid rgba(255,84,112,.32);color:#ffa8b8}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#26334c;border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:#334660}
+.empty{padding:26px 16px;text-align:center;color:var(--dim2);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">BB</div>
+    <div>
+      <h1>Draft Room</h1>
+      <div class="sub" id="subline">Bad News Bears · Slot 6 of 10</div>
+    </div>
+  </div>
+  <div class="hspace"></div>
+  <div class="pill"><span class="dot" id="sdot"></span><span id="smsg">Manual mode</span></div>
+  <div class="hstat"><div class="k">Round</div><div class="v tabnum" id="hRound">1</div></div>
+  <div class="hstat"><div class="k">Pick</div><div class="v tabnum" id="hPick">1</div></div>
+  <div class="hstat"><div class="k">Left</div><div class="v tabnum" id="hLeft">13</div></div>
+  <button class="btn sync" id="bSync">▶ Start Sync</button>
+  <button class="btn simb" id="bSim">🎲 Practice</button>
+  <button class="btn ghost" id="bSet">⚙ Settings</button>
+  <button class="btn ghost" id="bUndo">↩ Undo</button>
+  <button class="btn ghost" id="bReset">⟲ Reset</button>
+</header>
+
+<div class="simbar" id="simbar">
+  <span class="simtag">PRACTICE DRAFT</span>
+  <span class="simtxt">The other nine teams are drafting by ADP and roster need. Nothing here touches your real league.</span>
+  <span class="hspace"></span>
+  <button class="mini" id="bSimAuto">⏸ Pause rivals</button>
+  <button class="mini" id="bSimNext">⏭ Skip to my pick</button>
+  <button class="mini" id="bSimOff">✕ Exit practice</button>
+</div>
+
+<div class="clock" id="clock">
+  <div class="ring"><span id="ringN">–</span></div>
+  <div>
+    <div class="big" id="clockBig">Waiting for the draft to start</div>
+    <div class="small" id="clockSmall">Mark picks below, or connect ESPN in Settings.</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="card" style="margin-bottom:15px">
+      <h2>Recommended — ranked by what you lose if you wait</h2>
+      <div class="recs" id="recs"></div>
+    </div>
+    <div class="card" style="margin-bottom:15px">
+      <h2>What the original workbook would take — unmodified</h2>
+      <div class="cmp" id="cmp"></div>
+      <div class="sheetrows" id="sheet"></div>
+    </div>
+    <div class="card">
+      <h2>Available players — click ✕ when someone is taken</h2>
+      <div class="tools">
+        <input type="search" id="q" placeholder="Search — Enter marks him taken, Shift+Enter means you got him" autocomplete="off">
+        <button class="chip on" data-pos="ALL">All</button>
+        <button class="chip" data-pos="QB">QB</button>
+        <button class="chip" data-pos="RB">RB</button>
+        <button class="chip" data-pos="WR">WR</button>
+        <button class="chip" data-pos="TE">TE</button>
+      </div>
+      <div class="rows" id="board"></div>
+      <div class="foot"><span>On the board · ranked by value over replacement · ADP = where ESPN drafts him</span><b class="tabnum" id="availN">0</b></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:15px">
+      <h2>Your starting lineup</h2>
+      <div class="slots" id="slots"></div>
+      <div class="rlist" id="roster"></div>
+      <div class="foot"><span>Projected starter points</span><b class="tabnum" id="lp">0</b></div>
+    </div>
+    <div class="card">
+      <h2>Picks as they land</h2>
+      <div class="tick" id="tick"></div>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3>Connect to ESPN</h3>
+    <p>Your league is private, so ESPN needs two cookies to let us read it. Everything
+       stays on this Mac in <code>config.json</code> — nothing is uploaded.</p>
+    <div class="steps">
+      <b>1.</b> In Chrome, open your league page on <code>espn.com</code> and log in.<br>
+      <b>2.</b> Press <code>⌥⌘I</code> → <b>Application</b> tab → <b>Cookies</b> → <code>https://www.espn.com</code>.<br>
+      <b>3.</b> Copy the <b>Value</b> of <code>espn_s2</code> and of <code>SWID</code>.<br>
+      <b>4.</b> Your league ID is the <code>leagueId=</code> number in your league URL.
+    </div>
+    <label>League ID</label>
+    <input type="text" id="cLeague" placeholder="e.g. 1234567">
+    <label>Your team ID <span style="text-transform:none;letter-spacing:0;color:var(--dim2)">— the <code>teamId=</code> in your team URL</span></label>
+    <input type="text" id="cTeam" placeholder="e.g. 12">
+    <label>espn_s2</label>
+    <input type="password" id="cS2" placeholder="AEB… (long string)">
+    <label>SWID</label>
+    <input type="text" id="cSwid" placeholder="{XXXXXXXX-XXXX-…}">
+    <div id="cNote"></div>
+    <div class="mrow">
+      <button class="btn" id="cSave" style="flex:1">Save &amp; test connection</button>
+      <button class="btn ghost" id="cClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const POSC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+let S=null, filter='ALL', q='';
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(path,body){
+  const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+              :{};
+  const r=await fetch(path,o);
+  return r.json();
+}
+async function refresh(){ render(await api('/api/state')); }
+
+/* ───────── render ───────── */
+function render(s){
+  if(!s) return; S=s;
+  $('subline').textContent=`${s.myteam} · Slot ${s.myslot} of ${s.teams||10}`;
+  $('hRound').textContent=s.round;
+  $('hPick').textContent=s.overall;
+  $('hLeft').textContent=s.picks_left_for_me;
+  $('availN').textContent=s.available_count;
+  $('lp').textContent=s.lineup_points.toFixed(0);
+
+  // practice mode chrome
+  const sim=s.sim&&s.sim.on;
+  document.body.classList.toggle('sim',!!sim);
+  $('simbar').classList.toggle('on',!!sim);
+  $('bSim').classList.toggle('on',!!sim);
+  $('bSim').textContent=sim?'🎲 Practice ON':'🎲 Practice';
+  if(sim) $('bSimAuto').textContent=s.sim.auto?'⏸ Pause rivals':'▶ Resume rivals';
+
+  // sync pill
+  const d=$('sdot');
+  d.className='dot'+(s.sync.on?(s.sync.ok===false?' bad':' live'):(s.sync.ok===false?' bad':''));
+  $('smsg').textContent=s.sync.msg+(s.sync.last&&s.sync.on?` · ${s.sync.last}`:'');
+  const b=$('bSync');
+  b.classList.toggle('on',s.sync.on);
+  b.textContent=s.sync.on?'■ Stop Sync':'▶ Start Sync';
+
+  // clock
+  const c=$('clock');
+  if(s.on_clock){
+    c.classList.add('hot');
+    $('ringN').textContent=s.overall;
+    $('clockBig').textContent="You're on the clock";
+    $('clockSmall').textContent=
+      `Round ${s.round}, overall pick ${s.overall}. Next turn after this: ${s.gap_after} picks away.`;
+  }else{
+    c.classList.remove('hot');
+    $('ringN').textContent=s.picks_until_mine!=null?s.picks_until_mine:'–';
+    if(s.picks_until_mine==null){
+      $('clockBig').textContent='Your draft is complete';
+      $('clockSmall').textContent='No picks remaining.';
+    }else{
+      $('clockBig').textContent=
+        `${s.picks_until_mine} pick${s.picks_until_mine===1?'':'s'} until you're up`;
+      $('clockSmall').textContent=
+        `Your next pick is overall ${s.next_my_pick} (round ${Math.floor((s.next_my_pick-1)/10)+1}).`;
+    }
+  }
+
+  renderRecs(s);
+  renderSheet(s);
+  renderSlots(s);
+  renderRoster(s);
+  renderBoard(s);
+  renderTick(s);
+}
+
+function renderRecs(s){
+  const el=$('recs');
+  if(!s.recommendations.length){
+    el.innerHTML='<div class="empty">No recommendations — your roster is full.</div>'; return;
+  }
+  const max=Math.max(...s.recommendations.map(r=>Math.abs(r.score)),1);
+  el.innerHTML=s.recommendations.map(r=>{
+    const acc=POSC[r.pos]||'var(--dim)';
+    const w=Math.max(4,Math.min(100,Math.abs(r.score)/max*100));
+    return `<div class="rec ${r.rank===1?'top':''}" style="--acc:${acc}">
+      <div class="head">
+        <div class="rnk">${r.rank}</div>
+        <div class="nm">${esc(r.player)}</div>
+        <div class="badge" style="background:${acc}">${r.pos}</div>
+        <div class="meta">${esc(r.tm)} · bye ${r.bye}</div>
+        <div class="spacer"></div>
+        <div class="ptbox"><div class="n tabnum">${r.fp.toFixed(0)}</div><div class="l">proj pts</div></div>
+      </div>
+      <div class="edge">
+        <div class="bar"><i style="width:${w}%"></i></div>
+        <div class="lab">edge over waiting <b>${r.score>0?'+':''}${r.score.toFixed(1)}</b></div>
+      </div>
+      <ul class="why">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="act">
+        <button class="mini pri" onclick="pick('${esc(r.player)}',true)">✓ I drafted him</button>
+        <button class="mini" onclick="pick('${esc(r.player)}',false)">Someone else took him</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSheet(s){
+  const c=$('cmp');
+  if(s.compare){
+    c.className='cmp '+(s.compare.agree?'agree':'differ');
+    c.innerHTML=(s.compare.agree?'✓ ':'⚑ ')+esc(s.compare.text);
+  }else{ c.className='cmp'; c.textContent='—'; }
+  const mineTop=s.recommendations.length?s.recommendations[0].player:null;
+  const el=$('sheet');
+  if(!s.sheet||!s.sheet.length){ el.innerHTML='<div class="empty">No workbook-ranked players left.</div>'; return; }
+  el.innerHTML=s.sheet.map(p=>{
+    const same=p.player===mineTop;
+    return `<div class="srow ${same?'same':''}" style="--acc:${POSC[p.pos]}">
+      <span class="wbrk">#${p.wb_rank}</span>
+      <span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
+      <span class="nm">${esc(p.player)}</span>
+      ${same?'<span class="flag">SAME PICK</span>':''}
+      <span class="nums">
+        <span>sheet VORP <b>${p.wb_vorp>0?'+':''}${p.wb_vorp.toFixed(0)}</b></span>
+        <span>ours <b>${p.vorp>0?'+':''}${p.vorp.toFixed(0)}</b></span>
+        <span>ADP <b>${p.adp?p.adp.toFixed(0):'—'}</b></span>
+        <span>proj <b>${p.fp.toFixed(0)}</b></span>
+      </span></div>`;
+  }).join('');
+}
+
+function renderSlots(s){
+  const need={QB:1,RB:2,WR:2,TE:1};
+  const by={QB:[],RB:[],WR:[],TE:[]};
+  s.my_roster.forEach(p=>by[p.pos]&&by[p.pos].push(p));
+  Object.values(by).forEach(a=>a.sort((x,y)=>y.fp-x.fp));
+  const used={QB:0,RB:0,WR:0,TE:0}; const out=[];
+  for(const [pos,n] of Object.entries(need)){
+    for(let i=0;i<n;i++){
+      const p=by[pos][i]; if(p) used[pos]++;
+      out.push({lab:pos,p});
+    }
+  }
+  const bench=[];
+  ['RB','WR','TE'].forEach(pos=>by[pos].slice(used[pos]).forEach(p=>bench.push(p)));
+  bench.sort((a,b)=>b.fp-a.fp);
+  for(let i=0;i<2;i++) out.push({lab:'FLEX',p:bench[i]});
+  $('slots').innerHTML=out.map(o=>{
+    const acc=o.p?(POSC[o.p.pos]||'var(--dim)'):'var(--dim)';
+    return `<div class="slot ${o.p?'filled':'empty'}">
+      <div class="p" style="color:${o.p?acc:'var(--dim)'}">${o.lab}</div>
+      <div class="n">${o.p?esc(o.p.player):'open'}</div></div>`;
+  }).join('');
+}
+
+function renderRoster(s){
+  const el=$('roster');
+  if(!s.my_roster.length){ el.innerHTML='<div class="empty">No players yet.</div>'; return; }
+  el.innerHTML=s.my_roster.map(p=>{
+    const clash=(s.byes[p.bye]||0)>=2;
+    return `<div class="rrow ${clash?'clash':''}" style="--acc:${POSC[p.pos]}">
+      <span class="tag">${p.pos}</span>
+      <span class="nm">${esc(p.player)}</span>
+      <span class="by">${esc(p.tm)} · bye ${p.bye}</span>
+      <span class="pt tabnum">${p.fp.toFixed(0)}</span></div>`;
+  }).join('');
+}
+
+function renderBoard(s){
+  const t=q.trim().toLowerCase();
+  const rows=s.available.filter(p=>
+    (filter==='ALL'||p.pos===filter) &&
+    (!t||p.player.toLowerCase().includes(t))
+  ).slice(0,140);
+  $('board').innerHTML=rows.length?rows.map(p=>
+    `<div class="prow" style="--acc:${POSC[p.pos]}">
+      <span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
+      <span class="nm">${esc(p.player)}</span>
+      <span class="tm">${esc(p.tm)}</span>
+      <span class="by">${p.bye}</span>
+      <span class="vv">${p.adp?('ADP '+p.adp.toFixed(0)):(p.auc?'$'+p.auc.toFixed(0):'—')}</span>
+      <span class="pt tabnum">${p.fp.toFixed(0)}</span>
+      <span class="b">
+        <button class="xs me" onclick="pick('${esc(p.player)}',true)">mine</button>
+        <button class="xs" onclick="pick('${esc(p.player)}',false)">✕ taken</button>
+      </span>
+    </div>`).join(''):'<div class="empty">Nobody matches that search.</div>';
+}
+
+function renderTick(s){
+  const el=$('tick');
+  if(!s.log.length){ el.innerHTML='<div class="empty">No picks recorded yet.</div>'; return; }
+  el.innerHTML=s.log.map(p=>
+    `<div class="tk ${p.mine?'mine':''}" style="--acc:${POSC[p.pos]}">
+      <span class="o tabnum">${p.overall}</span>
+      <span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
+      <span class="nm">${esc(p.player)}</span>
+      <span class="ow">${esc(p.mine?'YOU':p.owner)}</span>
+    </div>`).join('');
+}
+
+/* ───────── actions ───────── */
+async function pick(player,mine){ render(await api('/api/pick',{player,mine})); }
+window.pick=pick;
+
+$('bUndo').onclick=async()=>render(await api('/api/undo',{}));
+$('bReset').onclick=async()=>{
+  if(confirm('Clear every pick and start over?')) render(await api('/api/reset',{}));
+};
+$('bSim').onclick=async()=>{
+  const on=S&&S.sim&&S.sim.on;
+  if(!on && !confirm('Start a practice draft? This clears the board and simulates the other nine teams.')) return;
+  if(!on) await api('/api/reset',{});
+  render(await api('/api/sim',{on:!on,auto:true}));
+};
+$('bSimOff').onclick=async()=>render(await api('/api/sim',{on:false}));
+$('bSimAuto').onclick=async()=>render(await api('/api/sim',{on:true,auto:!(S&&S.sim.auto)}));
+$('bSimNext').onclick=async()=>render(await api('/api/sim/step',{to_me:true}));
+$('bSync').onclick=async()=>{
+  if(!S) return;
+  if(!S.configured && !S.sync.on){ openSet(); return; }
+  render(await api('/api/sync',{on:!S.sync.on}));
+};
+$('q').oninput=e=>{q=e.target.value; if(S) renderBoard(S);};
+$('q').onkeydown=async e=>{
+  if(e.key!=='Enter'||!S) return;
+  const t=q.trim().toLowerCase(); if(!t) return;
+  const hit=S.available.find(p=>p.player.toLowerCase().includes(t));
+  if(!hit) return;
+  // Enter = crossed off by someone else; Shift+Enter = you drafted him
+  render(await api('/api/pick',{player:hit.player,mine:e.shiftKey}));
+  $('q').value=''; q='';
+};
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); filter=c.dataset.pos;
+  c.style.setProperty('--acc',POSC[filter]||'#2a3854');
+  if(S) renderBoard(S);
+});
+
+function openSet(){
+  if(S&&S.cfg){
+    if(S.cfg.league_id) $('cLeague').value=S.cfg.league_id;
+    if(S.cfg.team_id)   $('cTeam').value=S.cfg.team_id;
+    $('cS2').placeholder   = S.cfg.has_s2   ? '✓ saved — paste again only to replace' : 'AEB… (long string)';
+    $('cSwid').placeholder = S.cfg.has_swid ? '✓ saved — paste again only to replace' : '{XXXXXXXX-XXXX-…}';
+    if(!S.cfg.has_s2||!S.cfg.has_swid)
+      $('cNote').innerHTML='<div class="note bad">Private leagues need both cookies below '
+        +'before ESPN will hand over the draft.</div>';
+  }
+  $('mask').classList.add('on');
+}
+$('bSet').onclick=openSet;
+$('cClose').onclick=()=>$('mask').classList.remove('on');
+$('mask').onclick=e=>{ if(e.target===$('mask')) $('mask').classList.remove('on'); };
+$('cSave').onclick=async()=>{
+  $('cNote').innerHTML='<div class="note">Testing…</div>';
+  const r=await api('/api/config',{
+    league_id:$('cLeague').value, team_id:$('cTeam').value,
+    espn_s2:$('cS2').value, swid:$('cSwid').value});
+  $('cNote').innerHTML=`<div class="note ${r.ok?'ok':'bad'}">${esc(r.msg||'')}</div>`;
+  render(r);
+};
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&document.activeElement!==$('q')){e.preventDefault();$('q').focus();}
+  if(e.key==='Escape')$('mask').classList.remove('on');
+});
+
+refresh();
+let tick=3000;
+setInterval(()=>{
+  const fast=S&&S.sim&&S.sim.on&&S.sim.auto&&!S.on_clock;
+  if(fast!==(tick===700)) tick=fast?700:3000;
+  refresh();
+},700);   // ESPN polling cadence is server-side; this only refreshes the view
+</script>
+</body>
+</html>

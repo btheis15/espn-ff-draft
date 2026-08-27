@@ -1,0 +1,13 @@
+# ESPN session cookies — these are live credentials to your account. Never commit.
+config.json
+
+# The Athletic's projection workbook and anything derived from it. Paid
+# subscriber content; run build_data.py locally to regenerate data.json.
+data.json
+*.xlsx
+~$*
+
+# macOS / Python noise
+.DS_Store
+__pycache__/
+*.pyc
