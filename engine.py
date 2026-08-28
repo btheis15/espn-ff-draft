@@ -611,12 +611,16 @@ def _reasons(r, available, roster, holes, counts, gap, current_round=None):
     # 5. Bye-week collision, only when it actually costs you something.
     spb, clash, pen = r.get("same_pos_bye", 0), r.get("bye_clash", 0), r.get("bye_penalty", 0)
     imp = r.get("impact")
-    if imp and imp["starters_lost"] >= 1 and imp["cost"] >= 1:
-        gone = ", ".join(p["player"] for p in imp["out"][:3])
-        entering = imp["entering"][0]["player"] if imp["entering"] else "nobody"
+    # imp["out"] includes the candidate himself — obvious, and not worth saying.
+    others_out = [p for p in (imp or {}).get("out", []) if p["player"] != r["player"]]
+    if imp and others_out and imp["cost"] >= 1:
+        gone = ", ".join(p["player"] for p in others_out[:3])
+        entering = imp["entering"][0]["player"] if imp["entering"] else None
+        tail = (f"{entering} comes off your bench" if entering
+                else "you have nobody on the bench to cover")
         out.append(
             f"Week {imp['week']}: you would also be without {gone}. Your lineup shuffles up and "
-            f"{entering} comes off the bench — about {imp['cost']:.0f} fewer points that week.")
+            f"{tail} — about {imp['cost']:.0f} fewer points that week.")
     elif spb:
         out.append(
             f"Bye clash — {spb} other {pos}{'s' if spb > 1 else ''} of yours is off in week "
