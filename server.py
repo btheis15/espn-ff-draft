@@ -250,6 +250,43 @@ class State:
     def round_of(self, overall):
         return (overall - 1) // DATA["teams"] + 1
 
+    def viz(self, avail):
+        """
+        Data behind the visuals. Three questions, three shapes:
+        what kind of player he is, how he sits among who is left, and how much
+        the four methods disagree.
+        """
+        base = DATA["baseline"]
+        curves, scarcity = {}, {}
+        for pos in ("QB", "RB", "WR", "TE"):
+            lst = sorted([p for p in avail if p["pos"] == pos], key=lambda p: -p["fp"])
+            curves[pos] = [dict(player=p["player"], v=round(p["fp"] - base[pos], 1),
+                                fp=p["fp"], adp=p.get("adp"))
+                           for p in lst[:24]]
+            above = [p for p in lst if p["fp"] > base[pos]]
+            need = DATA["starters"][pos] * DATA["teams"]
+            filled = sum(1 for sl in self.rosters
+                         for pl in self.rosters[sl] if pl["pos"] == pos)
+            # What actually matters is not how many are left but how much worse
+            # off you are for waiting one turn. Counting supply calls quarterback
+            # "tight" at 10-for-10 when the tenth throws for 308 and the drop is
+            # meaningless; this measures the drop itself.
+            gap = self.gap_after_this() if self.on_the_clock() else (self.picks_until_mine() or 0)
+            later = engine.future_pool(avail, gap)
+            nxt = engine._best_at(later, pos)
+            best_now = lst[0]["fp"] if lst else base[pos]
+            best_next = nxt["fp"] if nxt else base[pos]
+            scarcity[pos] = dict(
+                above=len(above),
+                need=max(0, need - filled),
+                best=round(best_now - base[pos], 1),
+                cost=round(max(0.0, best_now - best_next), 1),
+                next_up=nxt["player"] if nxt else None,
+                replacement=round(base[pos], 1),
+            )
+        runs = [dict(pos=p["pos"], mine=p["mine"]) for p in self.log[-16:]]
+        return dict(curves=curves, scarcity=scarcity, runs=runs)
+
     def snapshot(self):
         avail = self.available()
         on_clock = self.on_the_clock()
@@ -272,6 +309,7 @@ class State:
             next_my_pick=self.next_my_pick(), picks_left_for_me=self.picks_left_for_me(),
             my_picks=MY_PICKS, gap_after=self.gap_after_this(),
             recommendations=recs,
+            viz=self.viz(avail),
             sheet=engine.sheet_board(avail, top_n=3),
             compare=engine.compare(recs, engine.sheet_board(avail, 1),
                                    self.my_roster, self.round_of(self.overall)),

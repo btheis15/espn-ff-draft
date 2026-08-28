@@ -143,8 +143,22 @@ def read_workbook():
                   + g("RCTD") * S["rec_td"])
             if fp <= 0:
                 continue          # unprojected bodies would only clutter the board
-            players.append(dict(player=r[idx["Player"]], pos=pos, tm=r[idx["TM"]],
-                                bye=r[idx["BYE"]], fp=round(fp, 1)))
+            # Where the points come from — this is what makes a player a "type":
+            # a target hog, a touchdown-dependent back, a volume rusher.
+            pass_pts = g("PAYD") * S["pass_yd"] + g("PATD") * S["pass_td"] + g("INT") * S["interception"]
+            rush_pts = g("RUYD") * S["rush_yd"] + g("RUTD") * S["rush_td"]
+            rec_pts  = g("RCYD") * S["rec_yd"] + g("REC") * S["rec"] + g("RCTD") * S["rec_td"]
+            td_pts   = (g("PATD") * S["pass_td"] + g("RUTD") * S["rush_td"]
+                        + g("RCTD") * S["rec_td"])
+            players.append(dict(
+                player=r[idx["Player"]], pos=pos, tm=r[idx["TM"]],
+                bye=r[idx["BYE"]], fp=round(fp, 1),
+                pass_pts=round(pass_pts, 1), rush_pts=round(rush_pts, 1),
+                rec_pts=round(rec_pts, 1), td_pts=round(td_pts, 1),
+                tgt=round(g("TGT"), 1), rec=round(g("REC"), 1),
+                ruat=round(g("RUAT"), 1), ruyd=round(g("RUYD"), 0),
+                rcyd=round(g("RCYD"), 0), payd=round(g("PAYD"), 0),
+                tds=round(g("PATD") + g("RUTD") + g("RCTD"), 1)))
 
     # AUC$ — the workbook's auction price, one block per position on POS Ranks.
     auc = {}

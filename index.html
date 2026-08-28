@@ -9,7 +9,15 @@
   --bg:#07090e; --bg2:#0b0f17; --panel:#111725; --panel2:#151d2e;
   --line:#1f2a3f; --line2:#2a3854;
   --txt:#eaf0fb; --dim:#8798b5; --dim2:#5d6d8a;
-  --qb:#a78bfa; --rb:#34d399; --wr:#fbbf24; --te:#22d3ee;
+  /* Categorical hues, stepped for this dark surface and validated with the
+     dataviz palette checker (adjacent pairs: CVD ΔE 8.4, normal-vision 19.3,
+     all ≥3:1 on surface). Order matters — aqua and magenta must not sit
+     adjacent. Position letters always accompany the colour, so identity is
+     never carried by hue alone. */
+  --qb:#9085e9; --rb:#199e70; --wr:#c98500; --te:#d55181;
+  /* Stacked point-source segments, validated in the order they stack. */
+  --src-pass:#008300; --src-rush:#3987e5; --src-rec:#d95926;
+  --gridline:#243049;
   --gold:#ffd166; --hot:#ff5470; --good:#2dd4a7;
   --r:14px;
 }
@@ -138,7 +146,7 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .rec .nm{font-size:19px;font-weight:790;letter-spacing:-.4px}
 .rec.top .nm{font-size:22px}
 .badge{font-size:10px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
-  background:var(--acc);color:#080c14}
+  background:var(--acc);color:#fff}
 .meta{font-size:11.5px;color:var(--dim);font-weight:600}
 .spacer{flex:1}
 .ptbox{text-align:right;flex:none}
@@ -161,6 +169,70 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .mini:hover{border-color:#44598a}
 .mini.pri{background:linear-gradient(180deg,var(--gold),#ff9e3d);color:#1a1204;border-color:transparent}
 .mini.pri:hover{filter:brightness(1.07)}
+
+/* ───────────── charts ───────────── */
+.cl{font:600 8.5px -apple-system,Arial,sans-serif;fill:#8798b5}
+.cl.mut{fill:#5d6d8a;font-weight:500}
+.cl.warn{fill:#e66767;font-weight:750}
+.cl.ok{fill:#2dd4a7;font-weight:700}
+.prof{margin-top:10px}
+.pbar{display:flex;height:9px;border-radius:5px;overflow:hidden;gap:2px;background:#0d1420}
+.pseg{display:block;border-radius:2px}
+.pkeys{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:10.5px;color:var(--dim)}
+.pkey{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.pkey i{width:8px;height:8px;border-radius:2px;flex:none}
+.pkey b{color:var(--txt);font-weight:750}
+.pkey.mut{color:var(--dim2)}
+.pkey.warnk b,.pkey.warnk{color:#ffb4a2}
+.vcwrap{margin-top:11px}
+.vctitle{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim2);
+  font-weight:750;margin-bottom:3px}
+.vcplot{display:flex;align-items:flex-end;gap:2px;height:86px;padding:14px 0 0}
+.vb{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;min-width:5px}
+.vb i{display:block;width:100%;border-radius:3px 3px 0 0}
+.vb.me i{box-shadow:0 0 0 1.5px #fff inset}
+.vb.me em{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  font-style:normal;font-size:9.5px;font-weight:800;color:#fff;white-space:nowrap;margin-bottom:3px}
+.vb.edge{border-right:1.5px dashed #e66767;margin-right:3px}
+.vcfoot{display:flex;justify-content:space-between;gap:8px;margin-top:4px;
+  font-size:9px;color:var(--dim2);border-top:1px solid var(--gridline);padding-top:4px}
+.cliffnote{color:#ff9d9d;font-weight:750}
+.lsbox{padding-top:2px}
+.lsrow{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.lsk{width:74px;font-size:9.5px;color:var(--dim2);text-align:right;flex:none}
+.lstrack{position:relative;flex:1;height:9px}
+.lstrack::before{content:"";position:absolute;top:4px;left:0;right:0;height:1px;background:var(--gridline)}
+.lstrack i{position:absolute;top:0;width:9px;height:9px;border-radius:50%;
+  background:#8fa0bd;transform:translateX(-50%);border:1.5px solid #0d1220}
+.lstrack i.first{background:#fff}
+.lsv{width:26px;font-size:9.5px;color:var(--txt);font-weight:700;flex:none}
+.lstag{font-size:9.5px;color:var(--dim2);margin-top:4px;padding-left:82px}
+.lstag.ok{color:#2dd4a7;font-weight:700}
+.lstag.warn{color:#ffb4a2;font-weight:700}
+/* position pressure */
+.scarce{padding:10px 16px 13px}
+.scrow{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+.scsub{font-size:9px;color:var(--dim2);margin:0 0 9px 33px;line-height:1.35}
+.scsub b{color:var(--dim);font-weight:700}
+.scbar{position:relative;flex:1;height:9px;border-radius:5px;background:#131b2c;overflow:visible}
+.scbar i{display:block;height:100%;border-radius:5px}
+.scbar u{position:absolute;top:-3px;width:1.5px;height:15px;background:#5d6d8a}
+.scnum{font-size:10.5px;color:var(--dim);white-space:nowrap}
+.scnum b{color:var(--txt);font-weight:750}
+.stbadge{font-size:8.5px;font-weight:850;letter-spacing:.5px;padding:2.5px 6px;border-radius:5px;width:44px;text-align:center}
+.st-bad{background:#4a1620;color:#ff9db0;border:1px solid #8d2b3d}
+.st-warn{background:#3d3210;color:#f0d08a;border:1px solid #7a6520}
+.st-ok{background:#123020;color:#8df0d0;border:1px solid #1f6b4f}
+.sclegend{font-size:9.5px;color:var(--dim2);line-height:1.45;margin-top:7px}
+/* runs */
+.runbox{padding:11px 16px 13px}
+.runs{display:flex;gap:3px;flex-wrap:wrap}
+.rchip{width:26px;height:22px;border-radius:5px;display:grid;place-items:center;
+  font-size:8.5px;font-weight:850;color:#fff}
+.rchip.me{outline:2px solid #fff;outline-offset:1px}
+.runwarn{margin-top:8px;font-size:10.5px;line-height:1.45;color:#ffd9a8;
+  background:rgba(230,103,103,.13);border:1px solid rgba(230,103,103,.4);
+  border-radius:8px;padding:6px 9px}
 
 /* ───────────── four-lens consensus ───────────── */
 .cons{font-size:8.5px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
@@ -190,7 +262,7 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .rlist{padding:6px 16px 14px}
 .rrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.045);font-size:12.5px}
 .rrow:last-child{border-bottom:none}
-.tag{font-size:9px;font-weight:850;padding:2px 5px;border-radius:5px;background:var(--acc);color:#080c14;flex:none;width:24px;text-align:center}
+.tag{font-size:9px;font-weight:850;padding:2px 5px;border-radius:5px;background:var(--acc);color:#fff;flex:none;width:24px;text-align:center}
 .rrow .nm{flex:1;font-weight:640}
 .rrow .by{color:var(--dim);font-size:11px}
 .rrow .pt{font-weight:750}
@@ -352,6 +424,14 @@ input:focus{outline:none;border-color:#456099}
       <div class="rlist" id="roster"></div>
       <div class="foot"><span>Projected starter points</span><b class="tabnum" id="lp">0</b></div>
     </div>
+    <div class="card" style="margin-bottom:15px">
+      <h2>Cost of waiting — by position</h2>
+      <div class="scarce" id="scarce"></div>
+    </div>
+    <div class="card" style="margin-bottom:15px">
+      <h2>Recent picks — is there a run?</h2>
+      <div class="runbox" id="runbox"></div>
+    </div>
     <div class="card">
       <h2>Picks as they land</h2>
       <div class="tick" id="tick"></div>
@@ -388,6 +468,7 @@ input:focus{outline:none;border-color:#456099}
 
 <script>
 const POSC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+const POSHEX={QB:'#9085e9',RB:'#199e70',WR:'#c98500',TE:'#d55181'};
 let S=null, filter='ALL', q='';
 
 const $=id=>document.getElementById(id);
@@ -412,6 +493,125 @@ async function api(path,body){
   return r.json();
 }
 async function refresh(){ render(await api('/api/state')); schedule(cadence()); }
+
+
+/* ══════════════ visuals ══════════════
+   Three questions, three forms:
+     what kind of player is he      → stacked composition of his point sources
+     how does he sit among the rest → ranked bars of who is left at his position
+     how much do the methods differ → the four ranks on one axis
+   Every chart carries direct labels, so colour is never the only signal.        */
+
+function svgEl(w,h,cls){return `<svg class="${cls}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" role="img">`}
+
+// ── what kind of player: where his points come from ──────────────────────────
+function profileBar(r){
+  const segs=[['passing',r.pass_pts,'var(--src-pass)'],
+              ['rushing',r.rush_pts,'var(--src-rush)'],
+              ['receiving',r.rec_pts,'var(--src-rec)']].filter(s=>s[1]>1);
+  const tot=segs.reduce((a,s)=>a+s[1],0)||1;
+  const bars=segs.map(([k,v,c])=>
+    `<span class="pseg" style="flex:${v};background:${c}" title="${k}: ${v.toFixed(0)} pts (${(100*v/tot).toFixed(0)}%)"></span>`).join('');
+  const keys=segs.map(([k,v,c])=>
+    `<span class="pkey"><i style="background:${c}"></i>${k} <b>${(100*v/tot).toFixed(0)}%</b></span>`).join('');
+  const tdShare=r.fp?100*r.td_pts/r.fp:0;
+  const vol = r.pos==='QB'
+    ? `${r.payd?Math.round(r.payd).toLocaleString():0} pass yds`
+    : (r.pos==='RB' ? `${Math.round(r.ruat)} carries · ${Math.round(r.tgt)} targets`
+                    : `${Math.round(r.tgt)} targets · ${Math.round(r.rec)} catches`);
+  return `<div class="prof">
+     <div class="pbar">${bars}</div>
+     <div class="pkeys">${keys}
+       <span class="pkey mut">${vol}</span>
+       <span class="pkey ${tdShare>32?'warnk':''}">TDs <b>${tdShare.toFixed(0)}%</b> of his points${tdShare>32?' — swingy':''}</span>
+     </div></div>`;
+}
+
+// ── how he sits among who is left at his position ────────────────────────────
+// Built from HTML rather than SVG: a viewBox has a fixed aspect ratio, so it
+// either letterboxes or distorts inside a card whose width changes. Divs just fit.
+function valueCurve(pos, curve, highlight){
+  if(!curve||!curve.length) return '';
+  // Below replacement every player is interchangeable, so plotting them is ink
+  // without information — show the startable end of the position.
+  let rows=curve.filter(d=>d.v>0).slice(0,16);
+  if(rows.length<4) rows=curve.slice(0,6);
+  if(!rows.some(d=>d.player===highlight)){
+    const me=curve.find(d=>d.player===highlight);
+    if(me) rows=[me,...rows].slice(0,16);
+  }
+  const max=Math.max(...rows.map(d=>d.v),1);
+  let cliff=0,ci=-1;
+  for(let i=0;i<rows.length-1;i++){const d=rows[i].v-rows[i+1].v; if(d>cliff){cliff=d;ci=i}}
+  const showCliff = ci>=0 && cliff>=10;
+  const bars=rows.map((d,i)=>{
+    const isMe=d.player===highlight;
+    const pct=Math.max(3,(Math.max(d.v,0)/max)*100);
+    const last=d.player.split(' ').slice(-1)[0];
+    return `<span class="vb ${isMe?'me':''} ${showCliff&&i===ci?'edge':''}"
+        title="${esc(d.player)} — edge ${d.v>0?'+':''}${d.v}, ${d.fp} pts${d.adp?', ADP '+Math.round(d.adp):''}">
+        ${isMe?`<em>${esc(last)} +${d.v.toFixed(0)}</em>`:''}
+        <i style="height:${pct}%;background:${isMe?POSC[pos]:'#2b3852'}"></i></span>`;
+  }).join('');
+  return `<div class="vcplot">${bars}</div>
+    <div class="vcfoot"><span>best left</span>
+      ${showCliff?`<span class="cliffnote">cliff of −${cliff.toFixed(0)} after #${ci+1}</span>`:'<span></span>'}
+      <span>replacement level →</span></div>`;
+}
+
+// ── how much the four methods disagree ───────────────────────────────────────
+function lensSpread(r){
+  const pts=[['this engine',r.rank_vona],['value only',r.rank_edge],
+             ['the sheet',r.rank_sheet],['the market',r.rank_market]].filter(p=>p[1]);
+  if(pts.length<2) return '';
+  const vals=pts.map(p=>p[1]);
+  const spread=Math.max(...vals)-Math.min(...vals);
+  const max=Math.max(...vals,8);
+  const rows=pts.map(([k,v],i)=>
+    `<div class="lsrow"><span class="lsk">${k}</span>
+       <span class="lstrack"><i style="left:${((v-1)/(max-1))*100}%"
+          class="${i===0?'first':''}" title="${k} ranks him #${v} of the players left"></i></span>
+       <span class="lsv">#${v}</span></div>`).join('');
+  const tag=spread<=3?['they agree','ok']:spread<=10?['some spread','']:['wide split','warn'];
+  return `<div class="lsbox">${rows}
+    <div class="lstag ${tag[1]}">${tag[0]} — ranks ${Math.min(...vals)} to ${Math.max(...vals)}</div></div>`;
+}
+
+// ── which positions are drying up ────────────────────────────────────────────
+// Ranked by what waiting one turn actually costs you, not by how many players
+// remain: quarterback can be 10-deep for 10 slots and still cost nothing to skip.
+function scarcityPanel(sc){
+  const rows=['QB','RB','WR','TE'].map(p=>[p,sc[p]]).filter(r=>r[1]);
+  const max=Math.max(...rows.map(([,d])=>d.cost),12);
+  rows.sort((a,b)=>b[1].cost-a[1].cost);
+  const body=rows.map(([p,d])=>{
+    const st = d.cost>=30?['ACT NOW','st-bad'] : d.cost>=12?['SOON','st-warn'] : ['CAN WAIT','st-ok'];
+    return `<div class="scrow">
+      <span class="tag" style="background:${POSC[p]}">${p}</span>
+      <span class="scbar" title="${d.next_up?'Best '+p+' at your next turn: '+esc(d.next_up):'nothing left'}">
+        <i style="width:${Math.max(3,(d.cost/max)*100)}%;background:${POSC[p]}"></i></span>
+      <span class="scnum">&minus;<b>${d.cost.toFixed(0)}</b> pts</span>
+      <span class="stbadge ${st[1]}">${st[0]}</span>
+    </div>
+    <div class="scsub">${d.above} above replacement for ${d.need} unfilled slots${d.next_up?` · next turn you'd get <b>${esc(d.next_up)}</b>`:''}</div>`;
+  }).join('');
+  return body+`<div class="sclegend">Bar = points you lose at that position by waiting until your next pick,
+    rather than taking the best one now. This is the number that should decide your pick, not how many players are left.</div>`;
+}
+
+// ── position runs ────────────────────────────────────────────────────────────
+function runStrip(runs){
+  if(!runs||!runs.length) return '<div class="empty">No picks yet.</div>';
+  const last=runs.slice(-16);
+  const chips=last.map(r=>`<span class="rchip ${r.mine?'me':''}" style="background:${POSC[r.pos]}"
+      title="${r.mine?'your pick':'rival pick'}: ${r.pos}">${r.pos}</span>`).join('');
+  const tail=last.slice(-4).map(r=>r.pos);
+  const run = tail.length===4 && tail.every(p=>p===tail[0]) ? tail[0]
+            : (tail.slice(-3).length===3 && tail.slice(-3).every(p=>p===tail[0])?tail[0]:null);
+  return `<div class="runs">${chips}</div>` + (run
+    ? `<div class="runwarn">Run on <b>${run}</b> — that tier is breaking. Take yours now or pivot to whatever the room just ignored.</div>`
+    : `<div class="sclegend">Last ${last.length} picks, most recent on the right. Three or more of one position in a row is a run.</div>`);
+}
 
 /* ───────── render ───────── */
 function render(s){
@@ -463,6 +663,8 @@ function render(s){
 
   renderRecs(s);
   renderSheet(s);
+  setHTML($('scarce'),scarcityPanel(s.viz.scarcity),'scarce');
+  setHTML($('runbox'),runStrip(s.viz.runs),'runbox');
   renderSlots(s);
   renderRoster(s);
   renderBoard(s);
@@ -493,6 +695,9 @@ function renderRecs(s){
         <div class="lab">edge over waiting <b>${r.score>0?'+':''}${r.score.toFixed(1)}</b></div>
       </div>
       <ul class="why">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      ${profileBar(r)}
+      ${r.rank===1?`<div class="vcwrap"><div class="vctitle">Who is left at ${r.pos} — bars are edge over replacement, tallest first</div>${valueCurve(r.pos,(S&&S.viz&&S.viz.curves[r.pos])||[],r.player)}</div>`:''}
+      <div class="vcwrap"><div class="vctitle">Where the four methods rank him</div>${lensSpread(r)}</div>
       <div class="lenses">
         ${[['VONA',r.rank_vona,'this engine — value over what you could get next pick'],
            ['EDGE',r.rank_edge,'raw value over replacement, ignores your roster'],

@@ -32,8 +32,8 @@ What you need:
 
 | Value | Where to find it |
 |---|---|
-| League ID | the `leagueId=` number in your league URL |
-| Your team ID | the `teamId=` number in your team URL |
+| League ID | already saved: **330075** |
+| Your team ID | already saved: **12** |
 | `espn_s2` | Chrome → your league page on espn.com → `⌥⌘I` → Application → Cookies → `https://www.espn.com` |
 | `SWID` | same place, includes the curly braces |
 
@@ -95,6 +95,47 @@ record, or the app would rank a star as a late-round flier.
 Points come from The Athletic's 8/24 projections rescored to full 1.0 PPR,
 verified to the decimal against the recalculated workbook. Replacement levels are
 re-derived after removing all 20 keepers: QB 308 · RB 202 · WR 198 · TE 182.
+
+## The visuals
+
+Five charts, each answering one question you actually ask on the clock. All are
+plain HTML/CSS or inline SVG — no chart library, nothing fetched.
+
+**What kind of player is he?** A stacked bar under each name splits his projected
+points into passing / rushing / receiving, with his target and carry volume and
+what share of his points come from touchdowns. A back who is 51% rushing with 22%
+of his points from TDs is a different asset from a receiver at 100% receiving on
+148 targets — and TD-heavy players are flagged as swingy.
+
+**How does he sit among who is left?** For the top recommendation, a bar chart of
+everyone still available at his position, tallest first, with him highlighted and
+the biggest remaining drop marked. Players below replacement are excluded — down
+there everyone is interchangeable, so plotting them is ink without information.
+When four of the top five tight ends are kept, this chart makes the cliff obvious
+in a way a number cannot.
+
+**How much do the methods disagree?** A four-row dot plot putting this engine,
+raw value, the sheet's board and ESPN's market on one rank axis. A tight cluster
+means take him; a wide split means read the reasons.
+
+**Which position should I take now?** The cost-of-waiting panel: for each
+position, the points you lose by waiting until your next pick instead of taking
+the best one now, sorted worst-first. This deliberately does *not* rank by how
+many players remain — quarterback can be ten-deep for ten slots and still cost
+nothing to skip, because the tenth-best still throws for 308.
+
+**Is there a run?** The last sixteen picks as position chips, with a warning when
+three or more of one position go back-to-back.
+
+### A note on the colours
+
+The position palette is stepped for the dark surface and validated with a
+colourblindness checker rather than chosen by eye: adjacent-pair CVD ΔE 8.4,
+normal-vision ΔE 19.3, every hue at least 3:1 against the surface. The order
+matters — aqua and magenta fail when adjacent, so they never are. Position
+letters accompany every colour, so hue is never the only signal. The stacked
+point-source segments are a separate validated trio, ordered so the pair that
+fails for protanopia never touches.
 
 ## Seeing the sheet's pick next to mine
 

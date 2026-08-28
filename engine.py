@@ -300,6 +300,11 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
                 auc=p.get("auc"), implied_round=p.get("implied_round"),
                 implied_pick=p.get("implied_pick"),
                 adp=p.get("adp"), owned=p.get("owned"), _pick=current_pick,
+                vorp=p.get("vorp"),
+                pass_pts=p.get("pass_pts", 0), rush_pts=p.get("rush_pts", 0),
+                rec_pts=p.get("rec_pts", 0), td_pts=p.get("td_pts", 0),
+                tgt=p.get("tgt", 0), rec=p.get("rec", 0), ruat=p.get("ruat", 0),
+                tds=p.get("tds", 0), wb_rank=p.get("wb_rank"),
                 slip=slip, market_bonus=round(bonus, 1),
             )
         )
