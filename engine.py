@@ -621,7 +621,41 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         r["displaced"] = raw_top if r.get("bye_broke_tie") else None
         r["reasons"] = _reasons(r, available, roster, holes, counts,
                                 picks_until_my_turn, current_round)
+        r["disagreement"] = (_why_we_disagree(r, available, roster, holes,
+                                              picks_until_my_turn)
+                             if rank == 0 else None)
     return out
+
+
+def _why_we_disagree(r, available, roster, holes, gap):
+    """
+    When this app's top pick is one the other methods would not make, say what it
+    knows that they do not — in terms of this roster, not in the abstract.
+
+    The other three rank players as players. None has been told which of your
+    starting slots are empty, which players your league already kept, or that
+    your next turn is a dozen picks away. Naming those is the difference between
+    "trust me" and an argument.
+    """
+    if (r.get("consensus") or {}).get("agree", 4) >= 3:
+        return None
+    pos = r["pos"]
+    bits = []
+    if holes.get(pos, 0) > 0:
+        bits.append(f"your {pos} slot is still empty")
+    left = [p for p in available if p["pos"] == pos and (p.get("vorp") or 0) > 0
+            and p["player"] != r["player"]]
+    if len(left) <= 8:
+        bits.append(f"only {len(left)} startable {pos}s are left behind him, because your "
+                    f"league's keepers took the rest")
+    if r.get("cliff") and r["cliff"] >= 25:
+        bits.append(f"the next {pos} you could actually get is {r['cliff']:.0f} points worse")
+    if gap and gap >= 8:
+        bits.append(f"your next pick is {gap} away, so waiting is not really an option")
+    if not bits:
+        return None
+    return ("The other three rank players in the abstract — none of them knows your team. "
+            "This one does: " + "; ".join(bits[:3]) + ".")
 
 
 def _reasons(r, available, roster, holes, counts, gap, current_round=None):

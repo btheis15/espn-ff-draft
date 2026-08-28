@@ -149,6 +149,8 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .twhy{font-size:11px;color:#c3d0e6;line-height:1.4;min-height:44px}
 .tfoot{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
 .tcw{font-size:9.5px;color:var(--dim2)}
+.tdis{margin-top:8px;padding:7px 9px;border-radius:8px;font-size:10.5px;line-height:1.45;
+  color:#d6c9ff;background:rgba(167,139,250,.10);border:1px solid rgba(167,139,250,.32)}
 .cwaitmini{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 .cwm{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);
   background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;padding:3px 7px}
@@ -763,7 +765,8 @@ function renderTopStrip(s){
         <span class="cons c${r.consensus.agree}" title="${esc(r.consensus.note)}">${r.consensus.verdict}</span>
         <span class="tcw">${r.consensus.agree} of 4 methods pick him here</span>
         ${cw.cost!==undefined?`<span class="tcw">· waiting at ${r.pos} costs ${cw.cost.toFixed(0)}</span>`:''}
-      </div></div>`;
+      </div>
+      ${r.disagreement?`<div class="tdis">${esc(r.disagreement)}</div>`:''}</div>`;
   }).join('');
   setHTML(el,html,'triple');
 
