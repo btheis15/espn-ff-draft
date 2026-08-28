@@ -162,6 +162,23 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .mini.pri{background:linear-gradient(180deg,var(--gold),#ff9e3d);color:#1a1204;border-color:transparent}
 .mini.pri:hover{filter:brightness(1.07)}
 
+/* ───────────── four-lens consensus ───────────── */
+.cons{font-size:8.5px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
+  background:#20293d;color:var(--dim);white-space:nowrap}
+.cons.c4{background:linear-gradient(145deg,var(--good),#19a883);color:#04170f}
+.cons.c3{background:linear-gradient(145deg,#8fd6a8,#4fae7c);color:#06170e}
+.cons.c2{background:linear-gradient(145deg,var(--gold),#e0a53c);color:#1a1204}
+.cons.c1,.cons.c0{background:linear-gradient(145deg,#ff8fa3,#e0566f);color:#210409}
+.lenses{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:9px;
+  border-top:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.lens{display:inline-flex;align-items:baseline;gap:5px;padding:3px 8px;border-radius:7px;
+  background:#131b2c;border:1px solid var(--line);font-size:10px}
+.lens b{font-weight:800;letter-spacing:.5px;color:var(--dim);font-size:8.5px}
+.lens i{font-style:normal;font-weight:750;color:var(--txt);font-variant-numeric:tabular-nums}
+.lens.hot{border-color:rgba(45,212,167,.45);background:rgba(45,212,167,.10)}
+.lens.hot i{color:#8df0d0}
+.consnote{font-size:10.5px;color:var(--dim);font-style:italic}
+
 /* ───────────── roster ───────────── */
 .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:12px 16px 4px}
 .slot{background:#0e1421;border:1px solid var(--line);border-radius:10px;padding:7px 9px;min-height:46px}
@@ -466,6 +483,7 @@ function renderRecs(s){
         <div class="rnk">${r.rank}</div>
         <div class="nm">${esc(r.player)}</div>
         <div class="badge" style="background:${acc}">${r.pos}</div>
+        <div class="cons c${r.consensus.agree}">${r.consensus.verdict}</div>
         <div class="meta">${esc(r.tm)} · bye ${r.bye}</div>
         <div class="spacer"></div>
         <div class="ptbox"><div class="n tabnum">${r.fp.toFixed(0)}</div><div class="l">proj pts</div></div>
@@ -475,6 +493,15 @@ function renderRecs(s){
         <div class="lab">edge over waiting <b>${r.score>0?'+':''}${r.score.toFixed(1)}</b></div>
       </div>
       <ul class="why">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="lenses">
+        ${[['VONA',r.rank_vona,'this engine — value over what you could get next pick'],
+           ['EDGE',r.rank_edge,'raw value over replacement, ignores your roster'],
+           ['SHEET',r.rank_sheet,"The Athletic's own board, untouched"],
+           ['MARKET',r.rank_market,'where ESPN drafts him']]
+          .map(([k,v,t])=>`<span class="lens ${v&&v<=5?'hot':''}" title="${t}">
+             <b>${k}</b><i>${v?'#'+v:'—'}</i></span>`).join('')}
+        <span class="consnote">${esc(r.consensus.note)}</span>
+      </div>
       <div class="act">
         <button class="mini pri" onclick="pick('${esc(r.player)}',true)">✓ I drafted him</button>
         <button class="mini" onclick="pick('${esc(r.player)}',false)">Someone else took him</button>

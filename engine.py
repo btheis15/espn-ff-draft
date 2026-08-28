@@ -166,6 +166,46 @@ def compare(mine, sheet, roster, current_round=None):
         f"This engine prefers {a['player']} — {why}."))
 
 
+LENSES = ("VONA", "EDGE", "SHEET", "MARKET")
+
+
+def lens_ranks(available, needed):
+    """
+    Rank the pool four independent ways so agreement between them can be seen.
+
+    VONA   this engine — value over next available, adjusted for your roster
+    EDGE   raw value over replacement, ignoring your roster and your pick gap
+    SHEET  The Athletic's own overall board, untouched
+    MARKET where ESPN's average draft position says he goes
+
+    They are genuinely independent: EDGE knows nothing about your schedule, SHEET
+    knows nothing about your league's keepers, and MARKET is other people's
+    behaviour rather than any projection at all.
+    """
+    pool = [p for p in available if p["pos"] in needed]
+    out = {}
+    for key, sort in (
+        ("EDGE", lambda p: -p.get("vorp", 0)),
+        ("SHEET", lambda p: p.get("wb_rank") or 9999),
+        ("MARKET", lambda p: p.get("adp") or 9999),
+    ):
+        for i, p in enumerate(sorted(pool, key=sort), 1):
+            out.setdefault(p["player"], {})[key] = i
+    return out
+
+
+def consensus_of(n):
+    """How many of the four methods would take this player out of the three shown."""
+    txt = {
+        4: ("ALL 4 AGREE", "every method picks him out of these three — your most confident pick"),
+        3: ("3 OF 4", "three of the four methods pick him out of these three"),
+        2: ("2 OF 4", "two of the four pick him — the methods are split"),
+        1: ("1 OF 4", "only one method picks him; if that is this engine, it is the only one "
+                      "that knows your roster, your keepers and your pick gap"),
+    }.get(n, ("0 OF 4", "no method rates him first of the three"))
+    return dict(verdict=txt[0], agree=n, note=txt[1])
+
+
 def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
               top_n=3, current_pick=None, current_round=None):
     """
@@ -265,7 +305,28 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         )
 
     scored.sort(key=lambda r: -r["score"])
+    for i, r in enumerate(scored, 1):
+        r["rank_vona"] = i
+    lr = lens_ranks(available, needed)
+    for r in scored:
+        got = lr.get(r["player"], {})
+        r["rank_edge"] = got.get("EDGE")
+        r["rank_sheet"] = got.get("SHEET")
+        r["rank_market"] = got.get("MARKET")
     out = scored[:top_n]
+
+    # Agreement is judged over the shortlist actually shown, not the whole pool:
+    # ranking against a pool that shrinks every pick made "unanimous" mean
+    # something different at every turn.
+    if out:
+        head = [next(p for p in available if p["player"] == r["player"]) for r in out]
+        firsts = {r["player"]: (1 if i == 0 else 0) for i, r in enumerate(out)}
+        for key, srt in (("EDGE", lambda p: -(p.get("vorp") or -999)),
+                         ("SHEET", lambda p: p.get("wb_rank") or 9999),
+                         ("MARKET", lambda p: p.get("adp") or 9999)):
+            firsts[min(head, key=srt)["player"]] += 1
+        for r in out:
+            r["consensus"] = consensus_of(firsts[r["player"]])
 
     for rank, r in enumerate(out):
         r["rank"] = rank + 1
