@@ -471,6 +471,9 @@ def sync_once():
             if norm(nm) == norm(DATA["myteam"]):
                 my_id = tid
     picks = ((league.get("draftDetail") or {}).get("picks")) or []
+    # ESPN pre-creates every pick slot with playerId -1 the moment a draft is
+    # scheduled, so a league hours from starting otherwise reports 150 picks.
+    picks = [p for p in picks if (p.get("playerId") or -1) > 0]
     lname = (league.get("settings") or {}).get("name") or f"league {cfg['league_id']}"
     if not picks:
         found = (f"you are \u201c{teams.get(my_id)}\u201d" if my_id is not None
@@ -502,7 +505,7 @@ def sync_once():
                 if u not in STATE.unmatched:
                     STATE.unmatched.append(u)
     made = len(picks)
-    msg = f"Live · {made} pick{'s' if made != 1 else ''} read from ESPN"
+    msg = f"Live · {made} real pick{'s' if made != 1 else ''} read from ESPN"
     if applied:
         msg += f" ({applied} new)"
     if my_id is None:
