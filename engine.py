@@ -44,6 +44,10 @@ REPLACEMENT = {}
 SAME_POS_BYE_TIEBREAK = 4.0
 OTHER_POS_BYE_TIEBREAK = 1.0
 
+# Once there is a bench to measure, bye_impact prices the real cascade instead:
+# who of yours is off that week, who slides up, which bench body actually enters
+# the lineup, and what that costs. Those two never both apply.
+
 
 def lineup_points(roster):
     """Best possible starting lineup from a roster: 1QB 2RB 2WR 1TE + 2 FLEX."""
@@ -65,6 +69,54 @@ def lineup_points(roster):
         bench += by_pos.get(pos, [])[used.get(pos, 0):]
     bench.sort(reverse=True)
     return total + sum(bench[:FLEX_SLOTS])
+
+
+def best_lineup(roster):
+    """
+    The actual eight players you would start, not just the total.
+
+    Needed because the cost of a bye is a cascade, not a substitution: lose a
+    starting receiver and your flex receiver slides up, and the body that really
+    enters the lineup is the best man on your bench. What that costs depends
+    entirely on who you already have.
+    """
+    picked, used = [], set()
+    by_pos = {}
+    for p in roster:
+        by_pos.setdefault(p["pos"], []).append(p)
+    for v in by_pos.values():
+        v.sort(key=lambda p: -p["fp"])
+    for pos, n in STARTERS.items():
+        for p in by_pos.get(pos, [])[:n]:
+            picked.append((pos, p)); used.add(id(p))
+    flex = sorted([p for p in roster
+                   if p["pos"] in FLEX_ELIGIBLE and id(p) not in used],
+                  key=lambda p: -p["fp"])[:FLEX_SLOTS]
+    for p in flex:
+        picked.append(("FLEX", p)); used.add(id(p))
+    return picked
+
+
+def bye_impact(player, roster):
+    """
+    What this player's bye week actually does to your lineup, given your roster.
+
+    Returns who is out that week, who slides up to cover, the body that enters
+    from the bench, and the points that week costs against a full-strength week.
+    """
+    full = list(roster) + [player]
+    week = player.get("bye")
+    if not week:
+        return None
+    normal = best_lineup(full)
+    normal_ids = {id(p) for _, p in normal}
+    avail = [p for p in full if p.get("bye") != week]
+    reduced = best_lineup(avail)
+    out = [p for p in full if p.get("bye") == week and id(p) in normal_ids]
+    entering = [p for _, p in reduced if id(p) not in normal_ids]
+    cost = (sum(p["fp"] for _, p in normal) - sum(p["fp"] for _, p in reduced)) / GAMES
+    return dict(week=week, out=out, entering=entering, cost=round(max(0.0, cost), 1),
+                starters_lost=len(out))
 
 
 def open_starting_slots(roster):
@@ -162,9 +214,16 @@ def bye_cost(player, roster):
     free = next((w for w in range(1, 19) if w not in used and w != player.get("bye")), None)
     if free is None:
         return 0.0
-    actual = bye_damage(_projected_roster(roster, player))
-    alone = bye_damage(_projected_roster(roster, dict(player, bye=free)))
-    return max(0.0, actual - alone)
+    # Priced off the real cascade on the roster you actually hold, not a
+    # synthetic one: filling the bench with generic replacement-level bodies
+    # washed out the very thing that matters, which is how good YOUR next man up
+    # happens to be. Every player misses one week, so the baseline is his cost on
+    # a week nobody else has; the excess over that is what stacking really costs.
+    here = bye_impact(player, roster)
+    clean = bye_impact(dict(player, bye=free), roster)
+    if not here or not clean:
+        return 0.0
+    return max(0.0, here["cost"] - clean["cost"])
 
 
 def marginal_gain(player, roster):
@@ -393,11 +452,13 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         bye_clash = my_byes.get(p["bye"], 0)
         same_pos_bye = sum(1 for x in roster
                            if x.get("bye") == p["bye"] and x["pos"] == pos)
-        # A small preference against stacking, plus the measured shortfall for the
-        # rare case where the bench genuinely cannot cover the week.
-        tie = min(9.0, SAME_POS_BYE_TIEBREAK * same_pos_bye
-                       + OTHER_POS_BYE_TIEBREAK * (bye_clash - same_pos_bye))
+        # The cascade is the real number; the flat tie-break is only a stand-in
+        # for the early rounds when there is no bench yet for it to measure.
+        # Applying both would double-count.
         bcost = bye_cost(p, roster)
+        tie = 0.0 if bcost >= 1.0 else min(
+            9.0, SAME_POS_BYE_TIEBREAK * same_pos_bye
+                 + OTHER_POS_BYE_TIEBREAK * (bye_clash - same_pos_bye))
         vona_before_bye = vona
         vona -= (tie + bcost)
 
@@ -430,6 +491,7 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
                 alt_fp=alt["fp"] if alt else None,
                 cliff=round(p["fp"] - alt["fp"], 1) if alt else None,
                 starts_now=starts_now, bye_clash=bye_clash,
+                impact=bye_impact(p, roster),
                 bye_cost=round(bcost, 1), same_pos_bye=same_pos_bye,
                 bye_penalty=round(tie + bcost, 1),
                 auc=p.get("auc"), implied_round=p.get("implied_round"),
@@ -548,15 +610,21 @@ def _reasons(r, available, roster, holes, counts, gap, current_round=None):
 
     # 5. Bye-week collision, only when it actually costs you something.
     spb, clash, pen = r.get("same_pos_bye", 0), r.get("bye_clash", 0), r.get("bye_penalty", 0)
-    if spb:
+    imp = r.get("impact")
+    if imp and imp["starters_lost"] >= 1 and imp["cost"] >= 1:
+        gone = ", ".join(p["player"] for p in imp["out"][:3])
+        entering = imp["entering"][0]["player"] if imp["entering"] else "nobody"
+        out.append(
+            f"Week {imp['week']}: you would also be without {gone}. Your lineup shuffles up and "
+            f"{entering} comes off the bench — about {imp['cost']:.0f} fewer points that week.")
+    elif spb:
         out.append(
             f"Bye clash — {spb} other {pos}{'s' if spb > 1 else ''} of yours is off in week "
-            f"{r['bye']} too. Small tie-break against him ({pen:.0f} pts); it will not stop you "
-            f"taking him if he is clearly the better player.")
+            f"{r['bye']} too. Small tie-break ({pen:.0f} pts); it will not stop you taking him "
+            f"if he is clearly better.")
     elif clash:
-        out.append(
-            f"Shares bye week {r['bye']} with {clash} of yours at other positions — "
-            f"a slight tie-break ({pen:.0f} pts).")
+        out.append(f"Shares bye week {r['bye']} with {clash} of yours at other positions — "
+                   f"a slight tie-break ({pen:.0f} pts).")
     else:
         out.append(f"Clean bye: nobody else on your roster is off in week {r['bye']}.")
 
