@@ -129,6 +129,32 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .clock .small{font-size:12.5px;color:var(--dim);margin-top:3px}
 .clock.hot .small{color:#e8cf9a}
 
+.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:11px 14px 4px}
+@media(max-width:900px){.triple{grid-template-columns:1fr}}
+.tcard{border:1px solid var(--line2);border-radius:12px;padding:11px 12px;
+  background:linear-gradient(160deg,rgba(30,41,64,.85),rgba(17,23,37,.95));position:relative}
+.tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--acc);border-radius:12px 0 0 12px}
+.tcard.top{border-color:rgba(255,209,102,.5);
+  background:linear-gradient(160deg,rgba(52,44,20,.9),rgba(21,25,38,.96));
+  box-shadow:0 0 0 1px rgba(255,209,102,.16)}
+.th{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.tn{font-size:15.5px;font-weight:790;letter-spacing:-.3px;flex:1;line-height:1.15}
+.tmeta{font-size:10px;color:var(--dim2);margin-bottom:7px}
+.tnums{display:flex;gap:14px;margin-bottom:7px}
+.tnums span{display:flex;flex-direction:column}
+.tnums b{font-size:18px;font-weight:820;letter-spacing:-.5px;line-height:1}
+.tnums i{font-style:normal;font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--dim2);font-weight:700;margin-top:2px}
+.twhy{font-size:11px;color:#c3d0e6;line-height:1.4;min-height:44px}
+.tfoot{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+.tcw{font-size:9.5px;color:var(--dim2)}
+.cwaitmini{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.cwm{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);
+  background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;padding:3px 7px}
+.cwm i{width:7px;height:7px;border-radius:2px}
+.cwm b{color:var(--txt);font-weight:750}
+
 /* ───────────── recommendation cards ───────────── */
 .recs{display:flex;flex-direction:column;gap:11px;padding:12px 14px 15px}
 .rec{
@@ -422,16 +448,19 @@ input:focus{outline:none;border-color:#456099}
 
 <div class="clock" id="clock">
   <div class="ring"><span id="ringN">–</span></div>
-  <div>
+  <div style="flex:1">
     <div class="big" id="clockBig">Waiting for the draft to start</div>
     <div class="small" id="clockSmall">Mark picks below, or connect ESPN in Settings.</div>
   </div>
+  <div class="cwaitmini" id="cwaitmini"></div>
 </div>
 
 <div class="grid">
   <div>
     <div class="card" style="margin-bottom:15px">
-      <h2>Recommended — ranked by what you lose if you wait</h2>
+      <h2>Your three options — pick one</h2>
+      <div class="triple" id="triple"></div>
+      <h2 style="padding-top:10px">Why, in detail</h2>
       <div class="recs" id="recs"></div>
     </div>
     <div class="card" style="margin-bottom:15px">
@@ -705,6 +734,41 @@ function runStrip(runs){
     : `<div class="sclegend">Last ${last.length} picks, most recent on the right. Three or more of one position in a row is a run.</div>`);
 }
 
+function renderTopStrip(s){
+  // Everything needed to choose, above the fold: three names, what each is worth,
+  // the single sharpest reason, and how the methods split. Detail lives below.
+  const el=$('triple');
+  if(!s.recommendations.length){ setHTML(el,'<div class="empty">Roster full.</div>','triple'); return; }
+  const html=s.recommendations.map(r=>{
+    const acc=POSC[r.pos]||'var(--dim)';
+    const why=(r.reasons&&r.reasons[1])||r.reasons[0]||'';
+    const cw=(s.viz&&s.viz.scarcity&&s.viz.scarcity[r.pos])||{};
+    return `<div class="tcard ${r.rank===1?'top':''}" style="--acc:${acc}">
+      <div class="th"><span class="rnk">${r.rank}</span>
+        <span class="tn">${esc(r.player)}</span>
+        <span class="badge" style="background:${acc}">${r.pos}</span></div>
+      <div class="tmeta">${esc(r.tm)} · bye ${r.bye}${r.adp?' · ADP '+r.adp.toFixed(0):''}</div>
+      <div class="tnums">
+        <span><b>${r.fp.toFixed(0)}</b><i>proj pts</i></span>
+        <span><b>${r.score>0?'+':''}${r.score.toFixed(0)}</b><i>edge if you take him now</i></span>
+      </div>
+      <div class="twhy">${esc(why)}</div>
+      <div class="tfoot">
+        <span class="cons c${r.consensus.agree}">${r.consensus.verdict}</span>
+        ${cw.cost!==undefined?`<span class="tcw">waiting at ${r.pos} costs ${cw.cost.toFixed(0)}</span>`:''}
+      </div></div>`;
+  }).join('');
+  setHTML(el,html,'triple');
+
+  // a one-glance summary of which position is bleeding, next to the clock
+  const sc=s.viz&&s.viz.scarcity;
+  if(sc){
+    const rows=Object.entries(sc).sort((a,b)=>b[1].cost-a[1].cost).slice(0,4);
+    setHTML($('cwaitmini'), rows.map(([p,d])=>
+      `<span class="cwm"><i style="background:${POSC[p]}"></i>${p}<b>&minus;${d.cost.toFixed(0)}</b></span>`).join(''),'cwm');
+  }
+}
+
 /* ───────── render ───────── */
 function render(s){
   if(!s) return; S=s;
@@ -793,6 +857,7 @@ function render(s){
 
 function renderRecs(s){
   const el=$('recs');
+  renderTopStrip(s);
   if(!s.recommendations.length){
     setHTML(el,'<div class="empty">No recommendations — your roster is full.</div>','recs'); return;
   }

@@ -288,9 +288,19 @@ class State:
             # off you are for waiting one turn. Counting supply calls quarterback
             # "tight" at 10-for-10 when the tenth throws for 308 and the drop is
             # meaningless; this measures the drop itself.
-            gap = self.gap_after_this() if self.on_the_clock() else (self.picks_until_mine() or 0)
-            later = engine.future_pool(avail, gap)
-            nxt = engine._best_at(later, pos)
+            # Always the gap between your NEXT pick and the one after it. Using
+            # "picks until your turn" instead asks what waiting four picks costs,
+            # which is not a decision anyone makes — and it reported tight end as
+            # free to wait on while the board's top recommendation was a tight
+            # end sitting on a 62-point cliff.
+            gap = self.gap_after_this()
+            # "Cost of waiting" means you did NOT take the best one now, so he is
+            # gone. Leaving him in the future pool makes every position look free
+            # to wait on — it reported tight end at zero while the top
+            # recommendation was a tight end on a 62-point cliff.
+            top = lst[0]["player"] if lst else None
+            later = engine.future_pool(avail, gap, exclude=top)
+            nxt = engine._best_at(later, pos, exclude=top)
             best_now = lst[0]["fp"] if lst else base[pos]
             best_next = nxt["fp"] if nxt else base[pos]
             scarcity[pos] = dict(
@@ -450,7 +460,7 @@ def espn_player_names(cfg):
 def espn_league(cfg):
     lid = cfg["league_id"]
     url = (f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/"
-           f"{SEASON}/segments/0/leagues/{lid}?view=mDraftDetail&view=mTeam")
+           f"{SEASON}/segments/0/leagues/{lid}?view=mDraftDetail&view=mTeam&view=mSettings")
     return espn_get(url, cfg)
 
 
