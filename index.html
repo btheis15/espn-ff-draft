@@ -249,6 +249,19 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
   background:rgba(230,103,103,.13);border:1px solid rgba(230,103,103,.4);
   border-radius:8px;padding:6px 9px}
 
+.mbox{margin-top:11px;padding-top:9px;border-top:1px solid rgba(255,255,255,.07)}
+.mhead{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim2);
+  font-weight:750;margin-bottom:6px}
+.mrow2{display:flex;align-items:baseline;gap:9px;padding:3px 0}
+.mk{width:112px;flex:none;font-size:11px;color:var(--dim);font-weight:650}
+.mv{width:32px;flex:none;font-size:12.5px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums}
+.mw{font-size:10.5px;color:var(--dim2);line-height:1.35}
+.mrow2.best .mv{color:#8df0d0}
+.mrow2.best .mk{color:var(--txt)}
+.mfoot{font-size:11px;color:var(--dim);margin-top:6px;padding-top:5px;
+  border-top:1px dashed rgba(255,255,255,.08)}
+.mfoot b{color:var(--txt)}
+
 /* ───────────── four-lens consensus ───────────── */
 .cons{font-size:8.5px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
   background:#20293d;color:var(--dim);white-space:nowrap}
@@ -427,7 +440,7 @@ input:focus{outline:none;border-color:#456099}
       <div class="sheetrows" id="sheet"></div>
     </div>
     <div class="card">
-      <h2>Available players — click ✕ when someone is taken</h2>
+      <h2 id="boardTitle">Available players</h2>
       <div class="tools">
         <input type="search" id="q" placeholder="Search — Enter marks him taken, Shift+Enter means you got him" autocomplete="off">
         <button class="chip on" data-pos="ALL">All</button>
@@ -568,6 +581,7 @@ function profileBar(r){
 // ── how he sits among who is left at his position ────────────────────────────
 // Built from HTML rather than SVG: a viewBox has a fixed aspect ratio, so it
 // either letterboxes or distorts inside a card whose width changes. Divs just fit.
+const ord=n=>n+(['th','st','nd','rd'][(n%100-n%10!=10)*(n%10<4)*n%10]||'th');
 function valueCurve(pos, curve, highlight){
   if(!curve||!curve.length) return '';
   // Below replacement every player is interchangeable, so plotting them is ink
@@ -597,27 +611,40 @@ function valueCurve(pos, curve, highlight){
         <i style="height:${pct}%;background:${isMe?POSC[pos]:'#2b3852'}"></i></span>`;
   }).join('');
   return `<div class="vcplot">${bars}</div>
-    <div class="vcfoot"><span>best left</span>
-      ${showCliff?`<span class="cliffnote">cliff of −${cliff.toFixed(0)} after #${ci+1}</span>`:'<span></span>'}
-      <span>replacement level →</span></div>`;
+    <div class="vcfoot"><span>← best still available</span>
+      ${showCliff?`<span class="cliffnote">big drop after the ${ord(ci+1)} — ${cliff.toFixed(0)} pts</span>`:'<span></span>'}
+      <span>worst still worth starting →</span></div>`;
 }
 
 // ── how much the four methods disagree ───────────────────────────────────────
+// One table, plain names, and it says what the numbers are ranks OF. An earlier
+// version showed a dot plot and then repeated the identical four numbers as
+// chips underneath, in different words — the same data twice, which read as two
+// unrelated things.
 function lensSpread(r){
-  const pts=[['this engine',r.rank_vona],['value only',r.rank_edge],
-             ['the sheet',r.rank_sheet],['the market',r.rank_market]].filter(p=>p[1]);
-  if(pts.length<2) return '';
-  const vals=pts.map(p=>p[1]);
-  const spread=Math.max(...vals)-Math.min(...vals);
-  const max=Math.max(...vals,8);
-  const rows=pts.map(([k,v],i)=>
-    `<div class="lsrow"><span class="lsk">${k}</span>
-       <span class="lstrack"><i style="left:${((v-1)/(max-1))*100}%"
-          class="${i===0?'first':''}" title="${k} ranks him #${v} of the players left"></i></span>
-       <span class="lsv">#${v}</span></div>`).join('');
-  const tag=spread<=3?['they agree','ok']:spread<=10?['some spread','']:['wide split','warn'];
-  return `<div class="lsbox">${rows}
-    <div class="lstag ${tag[1]}">${tag[0]} — ranks ${Math.min(...vals)} to ${Math.max(...vals)}</div></div>`;
+  const rows=[
+    ['This app',        r.rank_vona,   'knows your roster, your keepers and how long until your next pick'],
+    ['Raw value',       r.rank_edge,   'points above a replacement starter — ignores your roster'],
+    ['The Athletic',    r.rank_sheet,  "their own board, exactly as published"],
+    ['ESPN draft market', r.rank_market,'where he actually gets drafted in real leagues'],
+  ].filter(x=>x[1]);
+  if(rows.length<2) return '';
+  const vals=rows.map(x=>x[1]), lo=Math.min(...vals), hi=Math.max(...vals);
+  const spread=hi-lo;
+  const body=rows.map(([k,v,why])=>
+    `<div class="mrow2 ${v===lo?'best':''}">
+       <span class="mk">${k}</span>
+       <span class="mv">#${v}</span>
+       <span class="mw">${why}</span>
+     </div>`).join('');
+  const verdict = spread<=3
+    ? `<b>They broadly agree</b> — every method has him near the top of what's left.`
+    : `<b>They disagree.</b> ${rows.find(x=>x[1]===lo)[0]} has him best of what's left at #${lo}; ` +
+      `${rows.find(x=>x[1]===hi)[0]} has him #${hi}.`;
+  return `<div class="mbox">
+    <div class="mhead">How each method ranks him — out of every player still on the board</div>
+    ${body}
+    <div class="mfoot">${verdict}</div></div>`;
 }
 
 // ── which positions are drying up ────────────────────────────────────────────
@@ -729,6 +756,9 @@ function render(s){
     c.classList.add('hot');
     $('ringN').textContent=s.overall;
     $('clockBig').textContent="You're on the clock";
+    if(s.sync&&s.sync.on) $('clockSmall').textContent=
+      `Round ${s.round}, overall pick ${s.overall}. Pick in the ESPN app — this updates itself. `+
+      `Next turn after this: ${s.gap_after} picks away.`;
     $('clockSmall').textContent=
       `Round ${s.round}, overall pick ${s.overall}. Next turn after this: ${s.gap_after} picks away.`;
   }else{
@@ -738,15 +768,20 @@ function render(s){
       $('clockBig').textContent='Your draft is complete';
       $('clockSmall').textContent='No picks remaining.';
     }else{
+      const n=s.picks_until_mine, rd=Math.floor((s.next_my_pick-1)/10)+1;
+      const slots=s.next_my_pick-s.overall;          // raw slots ahead
+      const kept=slots-n;                            // of which are keeper auto-picks
       $('clockBig').textContent=
-        `${s.picks_until_mine} pick${s.picks_until_mine===1?'':'s'} until you're up`;
-      $('clockSmall').textContent=
-        `Your next pick is overall ${s.next_my_pick} (round ${Math.floor((s.next_my_pick-1)/10)+1}).`;
+        `${n} team${n===1?'':'s'} still to pick before you`;
+      $('clockSmall').textContent =
+        `You're at overall pick ${s.next_my_pick} (round ${rd}).` +
+        (kept>0 ? `  ${slots} slots are ahead of you, but ${kept} ${kept===1?'is a keeper already assigned':'are keepers already assigned'}, so only ${n} real pick${n===1?'':'s'} remain${n===1?'s':''}.` : '');
     }
   }
 
   renderRecs(s);
   renderSheet(s);
+  setText($('boardTitle'), (s.sync&&s.sync.on)?'Available players — updating live from ESPN':'Available players — click ✕ when someone is taken','bt');
   setHTML($('scarce'),scarcityPanel(s.viz.scarcity),'scarce');
   setHTML($('byebox'),byeGrid(s.viz.byes,s.viz.roster_size),'byes');
   setHTML($('runbox'),runStrip(s.viz.runs),'runbox');
@@ -781,21 +816,13 @@ function renderRecs(s){
       </div>
       <ul class="why">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
       ${profileBar(r)}
-      ${r.rank===1?`<div class="vcwrap"><div class="vctitle">Who is left at ${r.pos} — bars are edge over replacement, tallest first</div>${valueCurve(r.pos,(S&&S.viz&&S.viz.curves[r.pos])||[],r.player)}</div>`:''}
-      <div class="vcwrap"><div class="vctitle">Where the four methods rank him</div>${lensSpread(r)}</div>
-      <div class="lenses">
-        ${[['VONA',r.rank_vona,'this engine — value over what you could get next pick'],
-           ['EDGE',r.rank_edge,'raw value over replacement, ignores your roster'],
-           ['SHEET',r.rank_sheet,"The Athletic's own board, untouched"],
-           ['MARKET',r.rank_market,'where ESPN drafts him']]
-          .map(([k,v,t])=>`<span class="lens ${v&&v<=5?'hot':''}" title="${t}">
-             <b>${k}</b><i>${v?'#'+v:'—'}</i></span>`).join('')}
-        <span class="consnote">${esc(r.consensus.note)}</span>
-      </div>
-      <div class="act">
+      ${r.rank===1?`<div class="vcwrap"><div class="vctitle">Everyone still available at ${r.pos}, best first — bar height is how much better than a replacement starter</div>${valueCurve(r.pos,(S&&S.viz&&S.viz.curves[r.pos])||[],r.player)}</div>`:''}
+      ${lensSpread(r)}
+
+      ${(S&&S.sync&&S.sync.on)?'':`<div class="act">
         <button class="mini pri" onclick="pick('${esc(r.player)}',true)">✓ I drafted him</button>
         <button class="mini" onclick="pick('${esc(r.player)}',false)">Someone else took him</button>
-      </div>
+      </div>`}
     </div>`;
   }).join('');
   setHTML(el,html,'recs');
@@ -867,6 +894,7 @@ function renderRoster(s){
 }
 
 function renderBoard(s){
+  const live=!!(s.sync&&s.sync.on);
   const t=q.trim().toLowerCase();
   const rows=s.available.filter(p=>
     (filter==='ALL'||p.pos===filter) &&
@@ -880,10 +908,10 @@ function renderBoard(s){
       <span class="by">${p.bye}</span>
       <span class="vv">${p.adp?('ADP '+p.adp.toFixed(0)):(p.auc?'$'+p.auc.toFixed(0):'—')}</span>
       <span class="pt tabnum">${p.fp.toFixed(0)}</span>
-      <span class="b">
+      ${live?'':`<span class="b">
         <button class="xs me" onclick="pick('${esc(p.player)}',true)">mine</button>
         <button class="xs" onclick="pick('${esc(p.player)}',false)">✕ taken</button>
-      </span>
+      </span>`}
     </div>`).join(''):'<div class="empty">Nobody matches that search.</div>';
   setHTML($('board'),html,'board');
 }
