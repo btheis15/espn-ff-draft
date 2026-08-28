@@ -226,6 +226,61 @@ def bye_cost(player, roster):
     return max(0.0, here["cost"] - clean["cost"])
 
 
+# A starting fantasy player misses roughly two to three games a season to injury
+# or rest. That is the window in which a backup is worth anything at all.
+INJURY_WEEKS = 2.5
+
+
+def insurance_value(player, roster):
+    """
+    What a player is worth as cover, which is invisible to a starters-only view.
+
+    A backup's own projection already assumes he stays a backup, so on a
+    best-lineup measure he scores about nothing and the model calls him
+    worthless. His actual value is conditional: it arrives in the weeks the man
+    ahead of him is out. So price him in that world — recompute the lineup with
+    your best player at his position removed, see what he adds there, and weight
+    it by how much of a season that scenario covers.
+
+    Returns season points, so it is directly comparable to everything else.
+    """
+    pos = player["pos"]
+    mine = sorted([x for x in roster if x["pos"] == pos], key=lambda x: -x["fp"])
+    if not mine:
+        return 0.0                      # nothing to insure yet
+    without = [x for x in roster if x is not mine[0]]
+    gain = (lineup_points(without + [player]) - lineup_points(without)) / GAMES
+    return max(0.0, gain * INJURY_WEEKS)
+
+
+def is_handcuff(player, roster):
+    """Same club, same position as one of yours — the direct beneficiary if he sits."""
+    return [x["player"] for x in roster
+            if x["pos"] == player["pos"] and x.get("tm") == player.get("tm")
+            and x["fp"] > player["fp"]]
+
+
+def fragility(roster):
+    """
+    For each position, what one injury would cost you and who is behind.
+    Answers the question a bench slot exists to answer.
+    """
+    out = {}
+    base = lineup_points(roster)
+    for pos in STARTERS:
+        mine = sorted([x for x in roster if x["pos"] == pos], key=lambda x: -x["fp"])
+        if not mine:
+            out[pos] = dict(star=None, next_up=None, loss=0.0, exposed=True)
+            continue
+        without = [x for x in roster if x is not mine[0]]
+        out[pos] = dict(
+            star=mine[0]["player"],
+            next_up=mine[1]["player"] if len(mine) > 1 else None,
+            loss=round((base - lineup_points(without)) / GAMES, 1),
+            exposed=len(mine) <= STARTERS[pos])
+    return out
+
+
 def marginal_gain(player, roster):
     """Points this player adds to your optimal starting lineup."""
     return lineup_points(roster + [player]) - lineup_points(roster)
@@ -427,10 +482,25 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         alt_gain = marginal_gain(alt, roster) if alt else 0.0
         vona = gain - alt_gain
 
-        # A player who fills nothing you start is worth less than his raw points.
-        starts_now = holes.get(pos, 0) > 0 or (pos in FLEX_ELIGIBLE and holes["FLEX"] > 0)
+        # Would he actually crack your lineup? Ask the lineup, not the slot count.
+        # Checking for an empty slot instead means that once fifteen bodies are
+        # rostered every candidate reads as bench depth — including a player who
+        # would walk straight into the starting eleven over someone you hold.
+        starts_now = gain > 1.0
         if not starts_now:
             vona *= 0.55
+
+        # ...but a bench player is not worthless: he is insurance, and that value
+        # only shows up when you price the weeks your starter is missing.
+        #
+        # Credited only to players who would NOT already start. For anyone who
+        # walks into the lineup, marginal_gain has counted his value once
+        # already, and adding cover on top double-counts it — which is how a
+        # starting-calibre back briefly out-scored the actual handcuff on
+        # "insurance".
+        ins = 0.0 if starts_now else insurance_value(p, roster)
+        vona += ins
+        cuff = is_handcuff(p, roster)
 
         # Don't hoard a position you've already solved.
         if counts.get(pos, 0) >= SOFT_CAP[pos] - 1:
@@ -491,12 +561,14 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
                 alt_fp=alt["fp"] if alt else None,
                 cliff=round(p["fp"] - alt["fp"], 1) if alt else None,
                 starts_now=starts_now, bye_clash=bye_clash,
+                insurance=round(ins, 1), handcuff=cuff,
                 impact=bye_impact(p, roster),
                 bye_cost=round(bcost, 1), same_pos_bye=same_pos_bye,
                 bye_penalty=round(tie + bcost, 1),
                 auc=p.get("auc"), implied_round=p.get("implied_round"),
                 implied_pick=p.get("implied_pick"),
                 adp=p.get("adp"), owned=p.get("owned"), _pick=current_pick,
+                conviction=p.get("conviction"),
                 vorp=p.get("vorp"),
                 pass_pts=p.get("pass_pts", 0), rush_pts=p.get("rush_pts", 0),
                 rec_pts=p.get("rec_pts", 0), td_pts=p.get("td_pts", 0),
@@ -549,13 +621,24 @@ def _reasons(r, available, roster, holes, counts, gap, current_round=None):
     pos, out = r["pos"], []
 
     # 1. Does he fill something you actually start?
-    if holes.get(pos, 0) > 0:
+    if holes.get(pos, 0) > 0 and r["starts_now"]:
         n = holes[pos]
         out.append(f"Fills an empty {pos} starting slot — you still need {n}.")
     elif r["starts_now"]:
-        out.append(f"Slots straight into FLEX; you have {holes['FLEX']} flex spot(s) open.")
+        out.append(f"Walks into your starting lineup — worth {r['gain']:.0f} pts more than "
+                   f"whoever he displaces there.")
     else:
-        out.append(f"Bench value — your {pos} starters are already set.")
+        ins, cuff = r.get("insurance", 0), r.get("handcuff") or []
+        if cuff:
+            out.append(
+                f"Direct handcuff to {cuff[0]} — same backfield, so he inherits the work "
+                f"if {cuff[0]} misses time. Worth about {ins:.0f} pts of cover.")
+        elif ins >= 4:
+            out.append(
+                f"Insurance: if your top {pos} misses time he is your cover, worth about "
+                f"{ins:.0f} pts across a typical two-to-three game absence.")
+        else:
+            out.append(f"Bench depth — your {pos} starters are set and he adds little cover.")
 
     # 2. The cost of waiting, which is the whole point.
     if r["alt"] and r["cliff"] is not None:
@@ -589,7 +672,19 @@ def _reasons(r, available, roster, holes, counts, gap, current_round=None):
     else:
         out.append(f"{len(near)} similar {pos}s available — you could pivot without much loss.")
 
-    # 4. Market value — where the room actually drafts him.
+    # 4a. Where the market is more convinced than the projection.
+    conv = r.get("conviction")
+    if conv and conv >= 15:
+        out.append(
+            f"The room drafts him {conv:.0f} picks earlier than his projected points justify. "
+            f"A projection forecasts the role he has now; a gap this size usually means "
+            f"people expect that role to grow.")
+    elif conv is not None and conv <= -30:
+        out.append(
+            f"The projections like him {abs(conv):.0f} picks more than the room does — "
+            f"either a genuine bargain or a role the market has already written off.")
+
+    # 4b. Market value — where the room actually drafts him.
     adp, slip = r.get("adp"), r.get("slip", 0)
     if adp:
         adp_rd = int((adp - 1) // 10 + 1)

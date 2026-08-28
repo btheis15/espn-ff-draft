@@ -40,6 +40,18 @@ for _p in DATA["players"]:
 
 engine.REPLACEMENT = dict(DATA["baseline"])   # the engine prices bye stacks against it
 
+# Market conviction: where the room drafts a player against where his projected
+# points rank him. A large positive gap means the crowd is paying for something
+# the projection does not show — usually a role expected to grow, which is
+# exactly the case a points forecast is blind to, because it forecasts the role
+# he has now. Restricted to genuinely owned, genuinely projected players: below
+# that threshold ESPN hands out a default ADP and the signal is pure noise.
+_ranked = sorted([p for p in DATA["players"] if p["fp"] > 80 and (p.get("owned") or 0) >= 15],
+                 key=lambda p: -p["fp"])
+for _i, _p in enumerate(_ranked, 1):
+    if _p.get("adp"):
+        _p["conviction"] = round(_i - _p["adp"], 1)
+
 PLAYERS = {p["player"]: p for p in DATA["players"]}
 KEEPER_SLOTS = {int(k): v for k, v in DATA["keeper_slots"].items()}
 MY_PICKS = [p["overall"] for p in DATA["mypicks"]]
