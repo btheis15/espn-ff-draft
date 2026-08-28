@@ -292,10 +292,13 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 /* ───────────── four-lens consensus ───────────── */
 .cons{font-size:8.5px;font-weight:850;letter-spacing:.5px;padding:3px 7px;border-radius:6px;
   background:#20293d;color:var(--dim);white-space:nowrap}
-.cons.c4{background:linear-gradient(145deg,var(--good),#19a883);color:#04170f}
-.cons.c3{background:linear-gradient(145deg,#8fd6a8,#4fae7c);color:#06170e}
-.cons.c2{background:linear-gradient(145deg,var(--gold),#e0a53c);color:#1a1204}
-.cons.c1,.cons.c0{background:linear-gradient(145deg,#ff8fa3,#e0566f);color:#210409}
+/* Agreement is information, not a grade — a red badge on the top card argued
+   against the recommendation it sat on. All four steps are the same neutral
+   chip; only the wording differs. */
+.cons.c4{background:rgba(45,212,167,.16);color:#8df0d0;border:1px solid rgba(45,212,167,.4)}
+.cons.c3{background:rgba(255,255,255,.07);color:var(--dim);border:1px solid var(--line2)}
+.cons.c2{background:rgba(255,255,255,.07);color:var(--dim);border:1px solid var(--line2)}
+.cons.c1,.cons.c0{background:rgba(167,139,250,.14);color:#c4b5fd;border:1px solid rgba(167,139,250,.38)}
 .lenses{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:9px;
   border-top:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
 .lens{display:inline-flex;align-items:baseline;gap:5px;padding:3px 8px;border-radius:7px;
@@ -757,8 +760,9 @@ function renderTopStrip(s){
       </div>
       <div class="twhy">${esc(why)}</div>
       <div class="tfoot">
-        <span class="cons c${r.consensus.agree}">${r.consensus.verdict}</span>
-        ${cw.cost!==undefined?`<span class="tcw">waiting at ${r.pos} costs ${cw.cost.toFixed(0)}</span>`:''}
+        <span class="cons c${r.consensus.agree}" title="${esc(r.consensus.note)}">${r.consensus.verdict}</span>
+        <span class="tcw">${r.consensus.agree} of 4 methods pick him here</span>
+        ${cw.cost!==undefined?`<span class="tcw">· waiting at ${r.pos} costs ${cw.cost.toFixed(0)}</span>`:''}
       </div></div>`;
   }).join('');
   setHTML(el,html,'triple');

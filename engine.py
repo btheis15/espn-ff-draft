@@ -421,14 +421,22 @@ def lens_ranks(available, needed):
 
 
 def consensus_of(n):
-    """How many of the four methods would take this player out of the three shown."""
+    """
+    How many of the four methods would take this player out of the three shown.
+
+    Deliberately worded, not numbered. A bare "1 OF 4" beside the top
+    recommendation reads as a failing grade, and next to a green "3 OF 4" on the
+    second card it argues against the very pick the app is making. The count is
+    information about agreement, not about quality — the wording now says which.
+    """
     txt = {
-        4: ("ALL 4 AGREE", "every method picks him out of these three — your most confident pick"),
-        3: ("3 OF 4", "three of the four methods pick him out of these three"),
-        2: ("2 OF 4", "two of the four pick him — the methods are split"),
-        1: ("1 OF 4", "only one method picks him; if that is this engine, it is the only one "
-                      "that knows your roster, your keepers and your pick gap"),
-    }.get(n, ("0 OF 4", "no method rates him first of the three"))
+        4: ("ALL AGREE", "all four methods pick him out of these three — the safest of the three"),
+        3: ("MOST AGREE", "three of the four methods pick him out of these three"),
+        2: ("SPLIT", "the four methods split evenly between him and another"),
+        1: ("CONTRARIAN", "only one of the four picks him out of these three — if that is this app, "
+                          "it is the only one that knows your roster and your pick gap"),
+    }.get(n, ("OTHERS PREFERRED", "none of the four picks him first of these three; he is here on "
+                                  "roster fit rather than raw ranking"))
     return dict(verdict=txt[0], agree=n, note=txt[1])
 
 
