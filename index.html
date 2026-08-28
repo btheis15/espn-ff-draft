@@ -194,6 +194,7 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .vb.me em{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
   font-style:normal;font-size:9.5px;font-weight:800;color:#fff;white-space:nowrap;margin-bottom:3px}
 .vb.edge{border-right:1.5px dashed #e66767;margin-right:3px}
+.vcnone{font-size:10.5px;color:var(--dim);line-height:1.45;padding:6px 0 2px}
 .vcfoot{display:flex;justify-content:space-between;gap:8px;margin-top:4px;
   font-size:9px;color:var(--dim2);border-top:1px solid var(--gridline);padding-top:4px}
 .cliffnote{color:#ff9d9d;font-weight:750}
@@ -224,6 +225,15 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
 .st-warn{background:#3d3210;color:#f0d08a;border:1px solid #7a6520}
 .st-ok{background:#123020;color:#8df0d0;border:1px solid #1f6b4f}
 .sclegend{font-size:9.5px;color:var(--dim2);line-height:1.45;margin-top:7px}
+.byebox{padding:10px 16px 13px}
+.byrow{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.bywk{width:34px;font-size:10px;font-weight:750;color:var(--dim)}
+.bybar{flex:1;height:8px;border-radius:4px;background:#131b2c;overflow:hidden}
+.bybar i{display:block;height:100%;border-radius:4px;background:#4a5a7a}
+.byrow.warn .bybar i{background:#c98500}
+.byrow.bad .bybar i{background:#e66767}
+.byout{font-size:10px;color:var(--txt);font-weight:700;white-space:nowrap;width:74px}
+.bypos{color:var(--dim2);font-weight:500}
 /* runs */
 .runbox{padding:11px 16px 13px}
 .runs{display:flex;gap:3px;flex-wrap:wrap}
@@ -429,6 +439,10 @@ input:focus{outline:none;border-color:#456099}
       <div class="scarce" id="scarce"></div>
     </div>
     <div class="card" style="margin-bottom:15px">
+      <h2>Your bye weeks</h2>
+      <div class="byebox" id="byebox"></div>
+    </div>
+    <div class="card" style="margin-bottom:15px">
       <h2>Recent picks — is there a run?</h2>
       <div class="runbox" id="runbox"></div>
     </div>
@@ -534,11 +548,16 @@ function valueCurve(pos, curve, highlight){
   if(!curve||!curve.length) return '';
   // Below replacement every player is interchangeable, so plotting them is ink
   // without information — show the startable end of the position.
-  let rows=curve.filter(d=>d.v>0).slice(0,16);
-  if(rows.length<4) rows=curve.slice(0,6);
+  const above=curve.filter(d=>d.v>0);
+  // Once nobody is left above replacement the position is picked over, and a bar
+  // chart of negatives says nothing useful — say so in words instead.
+  if(above.length===0)
+    return `<div class="vcnone">Everyone left at ${pos} is below replacement — the position is
+      picked over, so take value elsewhere and stream this slot.</div>`;
+  let rows=above.slice(0,16);
   if(!rows.some(d=>d.player===highlight)){
     const me=curve.find(d=>d.player===highlight);
-    if(me) rows=[me,...rows].slice(0,16);
+    if(me){ rows=[...rows,me].sort((a,b)=>b.v-a.v).slice(0,16); }
   }
   const max=Math.max(...rows.map(d=>d.v),1);
   let cliff=0,ci=-1;
@@ -550,7 +569,7 @@ function valueCurve(pos, curve, highlight){
     const last=d.player.split(' ').slice(-1)[0];
     return `<span class="vb ${isMe?'me':''} ${showCliff&&i===ci?'edge':''}"
         title="${esc(d.player)} — edge ${d.v>0?'+':''}${d.v}, ${d.fp} pts${d.adp?', ADP '+Math.round(d.adp):''}">
-        ${isMe?`<em>${esc(last)} +${d.v.toFixed(0)}</em>`:''}
+        ${isMe?`<em>${esc(last)} ${d.v>0?'+':''}${d.v.toFixed(0)}</em>`:''}
         <i style="height:${pct}%;background:${isMe?POSC[pos]:'#2b3852'}"></i></span>`;
   }).join('');
   return `<div class="vcplot">${bars}</div>
@@ -597,6 +616,28 @@ function scarcityPanel(sc){
   }).join('');
   return body+`<div class="sclegend">Bar = points you lose at that position by waiting until your next pick,
     rather than taking the best one now. This is the number that should decide your pick, not how many players are left.</div>`;
+}
+
+// ── your bye weeks ───────────────────────────────────────────────────────────
+function byeGrid(byes, rosterSize){
+  if(!byes||!byes.length) return '<div class="empty">No players yet.</div>';
+  const max=Math.max(...byes.map(b=>b.loss),1);
+  const rows=byes.map(b=>{
+    const bad=b.short>0, warn=b.out>=3;
+    return `<div class="byrow ${bad?'bad':warn?'warn':''}"
+        title="${esc(b.names.join(', '))}">
+      <span class="bywk">wk ${b.week}</span>
+      <span class="bybar"><i style="width:${Math.max(4,(b.loss/max)*100)}%"></i></span>
+      <span class="byout">${b.out} out<span class="bypos"> ${b.pos.join('/')}</span></span>
+      ${bad?`<span class="stbadge st-bad">${b.short} SHORT</span>`
+           :warn?'<span class="stbadge st-warn">THIN</span>'
+                :'<span class="stbadge st-ok">OK</span>'}
+    </div>`;
+  }).join('');
+  const worst=byes.reduce((a,b)=>b.loss>a.loss?b:a,byes[0]);
+  return rows+`<div class="sclegend">Bar = points that week's lineup loses versus a full-strength week.
+    ${rosterSize<9?'With fewer than nine players a bye cannot really hurt you yet — this becomes meaningful as the bench fills.'
+      :`Worst week is <b>${worst.week}</b>. Avoid adding more players on that bye.`}</div>`;
 }
 
 // ── position runs ────────────────────────────────────────────────────────────
@@ -664,6 +705,7 @@ function render(s){
   renderRecs(s);
   renderSheet(s);
   setHTML($('scarce'),scarcityPanel(s.viz.scarcity),'scarce');
+  setHTML($('byebox'),byeGrid(s.viz.byes,s.viz.roster_size),'byes');
   setHTML($('runbox'),runStrip(s.viz.runs),'runbox');
   renderSlots(s);
   renderRoster(s);

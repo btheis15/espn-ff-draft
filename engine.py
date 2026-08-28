@@ -21,6 +21,29 @@ SOFT_CAP = {"QB": 2, "RB": 6, "WR": 8, "TE": 2}
 # the QB replacement level of 308.
 QB_EARLY_COST = {1: 25.0, 2: 22.0, 3: 20.0, 4: 16.0, 5: 10.0, 6: 2.0}
 
+# Replacement-level points per position, filled in from the data at load time.
+# Used to project what a finished roster looks like when costing a bye stack.
+REPLACEMENT = {}
+
+# Bye-week tie-breakers.
+#
+# These are a preference, not a measurement, and the distinction matters. Testing
+# showed that stacking byes costs almost nothing in season points: when a starter
+# is off you promote a bench player, and that swap costs (starter − bench)
+# whether the absences clump together or fall in different weeks. The loss is
+# linear in how many are out, not in how they cluster — it only turns superlinear
+# once more players are out than the bench can cover, which on a 15-man roster
+# with 8 starters essentially never happens.
+#
+# What a clash does cost is harder to price: less room to manoeuvre in that week,
+# and worse exposure if an injury lands on top of it. So these are deliberately
+# small — sized against a median gap of ~16 points between the top two
+# candidates, they decide a close call and cannot outvote a materially better
+# player. The genuinely severe cases are still caught by the measured
+# lineup-shortfall term, which is added on top.
+SAME_POS_BYE_TIEBREAK = 4.0
+OTHER_POS_BYE_TIEBREAK = 1.0
+
 
 def lineup_points(roster):
     """Best possible starting lineup from a roster: 1QB 2RB 2WR 1TE + 2 FLEX."""
@@ -53,6 +76,95 @@ def open_starting_slots(roster):
     surplus = sum(max(0, counts.get(pos, 0) - STARTERS[pos]) for pos in FLEX_ELIGIBLE)
     holes["FLEX"] = max(0, FLEX_SLOTS - surplus)
     return holes
+
+
+GAMES = 17          # projections are season totals across a 17-game schedule
+
+
+def weekly_lineup(roster, week):
+    """Best lineup you could actually field in a given week, per game."""
+    return lineup_points([p for p in roster if p.get("bye") != week]) / GAMES
+
+
+def bye_damage(roster):
+    """
+    Points lost across the season to bye weeks.
+
+    A bye only hurts when it empties a slot you have to start. Comparing the
+    lineup you can field that week against the one you would field with everyone
+    healthy captures that automatically, and it is position-aware for free: two
+    running backs sharing a bye costs far more than two players sharing one when
+    the second is a bench receiver, because only the first forces a replacement
+    into your starting lineup.
+    """
+    if not roster:
+        return 0.0
+    ideal = lineup_points(roster) / GAMES
+    weeks = {p.get("bye") for p in roster if p.get("bye")}
+    return sum(max(0.0, ideal - weekly_lineup(roster, w)) for w in weeks)
+
+
+def _projected_roster(roster, extra):
+    """
+    Your roster as it will look on kickoff, not as it looks mid-draft.
+
+    A bye stack taken in round 4 does its damage in week 6, by which point the
+    roster is full. Two details matter, and both were wrong in earlier versions:
+
+    1. Fill to the whole 15-man roster, not just the eight starting slots. With
+       no bench, clustering byes is mathematically free — two players out in one
+       week costs exactly what two players out in separate weeks costs, because
+       every absence is a straight subtraction. Stacking only hurts when there is
+       a bench to absorb a single-week hole, and it is overwhelmed.
+    2. Spread the filler across distinct bye weeks, so the filler never invents a
+       collision of its own.
+    """
+    out = list(roster) + [extra]
+    used = {p.get("bye") for p in out}
+    free = [w for w in range(5, 15) if w not in used] or list(range(5, 15))
+    i = 0
+
+    def add(pos):
+        nonlocal i
+        out.append(dict(player=f"replacement {pos}", pos=pos,
+                        fp=REPLACEMENT.get(pos, 150.0), bye=free[i % len(free)]))
+        i += 1
+
+    holes = open_starting_slots(out)
+    for pos in ("QB", "RB", "WR", "TE"):
+        for _ in range(holes.get(pos, 0)):
+            add(pos)
+    for _ in range(holes.get("FLEX", 0)):
+        add("WR")
+    # bench: whatever is left of the 15, weighted the way a real bench skews
+    bench_mix = ("RB", "WR", "WR", "RB", "WR", "TE", "QB")
+    b = 0
+    while len(out) < ROSTER_MAX:
+        add(bench_mix[b % len(bench_mix)])
+        b += 1
+    return out
+
+
+def bye_cost(player, roster):
+    """
+    What this player's bye colliding with byes you already own actually costs,
+    in season points.
+
+    Every player misses one week, so the raw damage of adding anyone is much the
+    same and tells you nothing. The number that matters is the excess: the same
+    player, on a week nobody else has, versus on the week he really has. The
+    difference is pure collision — measured against the roster you will finish
+    with, so a stack created in round 4 is costed at what it does in week 6.
+    """
+    if not roster:
+        return 0.0
+    used = {x.get("bye") for x in roster}
+    free = next((w for w in range(1, 19) if w not in used and w != player.get("bye")), None)
+    if free is None:
+        return 0.0
+    actual = bye_damage(_projected_roster(roster, player))
+    alone = bye_damage(_projected_roster(roster, dict(player, bye=free)))
+    return max(0.0, actual - alone)
 
 
 def marginal_gain(player, roster):
@@ -265,9 +377,29 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         if counts.get(pos, 0) >= SOFT_CAP[pos] - 1:
             vona *= 0.7
 
+        # Bye weeks. Two parts, because they answer different questions.
+        #
+        # The first is a plain preference: given two similar players, take the one
+        # who is not on a week you already have covered — and weigh a clash at the
+        # SAME position much harder, since that is the one that leaves a starting
+        # slot empty rather than merely thinning the bench.
+        #
+        # The second is the measured lineup shortfall, which only bites once the
+        # roster is deep enough for a bye to actually cost you a starter. Early on
+        # it is correctly zero; the preference term still applies.
+        #
+        # Both are deliberately small next to real value gaps: they should decide
+        # a close call, never talk you out of a materially better player.
         bye_clash = my_byes.get(p["bye"], 0)
-        if bye_clash >= 2:
-            vona -= 3.0
+        same_pos_bye = sum(1 for x in roster
+                           if x.get("bye") == p["bye"] and x["pos"] == pos)
+        # A small preference against stacking, plus the measured shortfall for the
+        # rare case where the bench genuinely cannot cover the week.
+        tie = min(9.0, SAME_POS_BYE_TIEBREAK * same_pos_bye
+                       + OTHER_POS_BYE_TIEBREAK * (bye_clash - same_pos_bye))
+        bcost = bye_cost(p, roster)
+        vona_before_bye = vona
+        vona -= (tie + bcost)
 
         # Quarterback timing. A per-pick view cannot see that spending an early
         # pick on a QB quietly costs you a starter at a scarce position for the
@@ -292,11 +424,14 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         scored.append(
             dict(
                 player=p["player"], pos=pos, tm=p["tm"], bye=p["bye"], fp=p["fp"],
-                score=round(vona, 1), gain=round(gain, 1),
+                score=round(vona, 1), score_no_bye=round(vona_before_bye, 1),
+                gain=round(gain, 1),
                 alt=alt["player"] if alt else None,
                 alt_fp=alt["fp"] if alt else None,
                 cliff=round(p["fp"] - alt["fp"], 1) if alt else None,
                 starts_now=starts_now, bye_clash=bye_clash,
+                bye_cost=round(bcost, 1), same_pos_bye=same_pos_bye,
+                bye_penalty=round(tie + bcost, 1),
                 auc=p.get("auc"), implied_round=p.get("implied_round"),
                 implied_pick=p.get("implied_pick"),
                 adp=p.get("adp"), owned=p.get("owned"), _pick=current_pick,
@@ -333,8 +468,15 @@ def recommend(available, roster, picks_until_my_turn, picks_left_for_me,
         for r in out:
             r["consensus"] = consensus_of(firsts[r["player"]])
 
+    # Did the bye penalty actually change the order? Only worth mentioning if so.
+    by_raw = sorted(scored, key=lambda r: -r["score_no_bye"])
+    raw_top = by_raw[0]["player"] if by_raw else None
     for rank, r in enumerate(out):
         r["rank"] = rank + 1
+        r["bye_broke_tie"] = bool(
+            rank == 0 and raw_top and raw_top != r["player"]
+            and abs(by_raw[0]["score_no_bye"] - r["score_no_bye"]) <= 12)
+        r["displaced"] = raw_top if r.get("bye_broke_tie") else None
         r["reasons"] = _reasons(r, available, roster, holes, counts,
                                 picks_until_my_turn, current_round)
     return out
@@ -404,9 +546,19 @@ def _reasons(r, available, roster, holes, counts, gap, current_round=None):
     elif r.get("auc"):
         out.append(f"No market data; workbook prices him at ${r['auc']:.0f}.")
 
-    # 5. Bye-week collision, only when it's real.
-    if r["bye_clash"] >= 2:
-        out.append(f"Careful: stacks bye week {r['bye']} with {r['bye_clash']} players you own.")
+    # 5. Bye-week collision, only when it actually costs you something.
+    spb, clash, pen = r.get("same_pos_bye", 0), r.get("bye_clash", 0), r.get("bye_penalty", 0)
+    if spb:
+        out.append(
+            f"Bye clash — {spb} other {pos}{'s' if spb > 1 else ''} of yours is off in week "
+            f"{r['bye']} too. Small tie-break against him ({pen:.0f} pts); it will not stop you "
+            f"taking him if he is clearly the better player.")
+    elif clash:
+        out.append(
+            f"Shares bye week {r['bye']} with {clash} of yours at other positions — "
+            f"a slight tie-break ({pen:.0f} pts).")
+    else:
+        out.append(f"Clean bye: nobody else on your roster is off in week {r['bye']}.")
 
     # 5. Roster-shape guard rails.
     if pos == "QB" and counts.get("QB", 0) == 0 and gap > 0:

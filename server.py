@@ -37,6 +37,8 @@ SIM_DELAY = 1.1          # seconds between simulated rival picks
 for _p in DATA["players"]:
     _p["vorp"] = round(_p["fp"] - DATA["baseline"][_p["pos"]], 1)
 
+engine.REPLACEMENT = dict(DATA["baseline"])   # the engine prices bye stacks against it
+
 PLAYERS = {p["player"]: p for p in DATA["players"]}
 KEEPER_SLOTS = {int(k): v for k, v in DATA["keeper_slots"].items()}
 MY_PICKS = [p["overall"] for p in DATA["mypicks"]]
@@ -285,7 +287,25 @@ class State:
                 replacement=round(base[pos], 1),
             )
         runs = [dict(pos=p["pos"], mine=p["mine"]) for p in self.log[-16:]]
-        return dict(curves=curves, scarcity=scarcity, runs=runs)
+
+        # Bye grid: for every week anyone on your roster is off, how many you
+        # lose, which positions, and whether you can still field eight starters.
+        me = self.my_roster
+        ideal = engine.lineup_points(me) / engine.GAMES if me else 0.0
+        byes = []
+        for w in sorted({p["bye"] for p in me if p.get("bye")}):
+            out_players = [p for p in me if p["bye"] == w]
+            avail_w = [p for p in me if p["bye"] != w]
+            holes = engine.open_starting_slots(avail_w)
+            short = sum(v for k, v in holes.items() if k != "FLEX") + holes.get("FLEX", 0)
+            byes.append(dict(
+                week=w, out=len(out_players),
+                pos=sorted({p["pos"] for p in out_players}),
+                names=[p["player"] for p in out_players],
+                loss=round(max(0.0, ideal - engine.weekly_lineup(me, w)), 1),
+                short=short))
+        return dict(curves=curves, scarcity=scarcity, runs=runs, byes=byes,
+                    roster_size=len(me))
 
     def snapshot(self):
         avail = self.available()
