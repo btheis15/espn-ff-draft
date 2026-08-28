@@ -66,6 +66,11 @@ header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14p
   box-shadow:0 0 0 1px rgba(45,212,167,.3),0 0 22px rgba(45,212,167,.22)}
 .btn.ghost{background:transparent}
 
+.draftpill{border-color:var(--line2)}
+.draftpill.soon{border-color:var(--gold);color:#f0dcaf;background:rgba(255,209,102,.10)}
+.draftpill.live{border-color:var(--good);color:#8df0d0;background:rgba(45,212,167,.12);font-weight:750}
+.draftpill.done{border-color:var(--line2);color:var(--dim2)}
+.draftpill.moved{border-color:var(--hot);color:#ffb4a2;background:rgba(255,84,112,.14);font-weight:800}
 /* status pill */
 .pill{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);
   background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
@@ -381,6 +386,7 @@ input:focus{outline:none;border-color:#456099}
   </div>
   <div class="hspace"></div>
   <div class="pill"><span class="dot" id="sdot"></span><span id="smsg">Manual mode</span></div>
+  <div class="pill draftpill" id="dpill" style="display:none"><span id="dmsg"></span></div>
   <div class="hstat"><div class="k">Round</div><div class="v tabnum" id="hRound">1</div></div>
   <div class="hstat"><div class="k">Pick</div><div class="v tabnum" id="hPick">1</div></div>
   <div class="hstat"><div class="k">Left</div><div class="v tabnum" id="hLeft">13</div></div>
@@ -681,6 +687,25 @@ function render(s){
   setText($('hLeft'),s.picks_left_for_me,'hL');
   setText($('availN'),s.available_count,'aN');
   $('lp').textContent=s.lineup_points.toFixed(0);
+
+  // draft schedule + status, live from ESPN
+  const D=s.draft||{};
+  const dp=$('dpill');
+  if(D.starts_text){
+    dp.style.display='flex';
+    let txt, cls='';
+    if(D.complete)          { txt='Draft complete · '+D.picks_made+' picks'; cls='done'; }
+    else if(D.in_progress)  { txt='DRAFT LIVE · pick '+(D.picks_made+1)+' of '+D.total_picks; cls='live'; }
+    else {
+      const m=Math.max(0,Math.round(D.seconds_away/60));
+      const h2=Math.floor(m/60), mm=m%60;
+      txt='Draft '+D.starts_text+(m>0?'  ·  in '+(h2?h2+'h ':'')+mm+'m':'  ·  starting now');
+      if(m<=15) cls='soon';
+    }
+    if(D.moved){ txt='⚠ START TIME CHANGED — now '+D.starts_text; cls='moved'; }
+    dp.className='pill draftpill '+cls;
+    setText($('dmsg'),txt,'dmsg');
+  } else dp.style.display='none';
 
   // practice mode chrome
   const sim=s.sim&&s.sim.on;

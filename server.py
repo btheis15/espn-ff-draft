@@ -122,6 +122,8 @@ class State:
         self.unmatched = []
         self.sim_on = False
         self.sim_auto = True
+        self.draft_info = {}       # scheduled time / status, read live from ESPN
+        self.draft_time_seen = None
 
     @property
     def my_roster(self):
@@ -352,6 +354,7 @@ class State:
             lineup_points=round(engine.lineup_points(self.my_roster), 1),
             holes=holes, byes=byes,
             log=list(reversed(self.log[-40:])),
+            draft=self.draft_info,
             sim=dict(on=self.sim_on, auto=self.sim_auto, delay=SIM_DELAY),
             team_count=DATA["teams"],
             team_list=[dict(slot=sl, name=DATA["teamnames"].get(str(sl), f"Slot {sl}"),
@@ -500,6 +503,30 @@ def sync_once():
     # scheduled, so a league hours from starting otherwise reports 150 picks.
     picks = [p for p in picks if (p.get("playerId") or -1) > 0]
     lname = (league.get("settings") or {}).get("name") or f"league {cfg['league_id']}"
+
+    # Draft schedule and status, straight from ESPN. The commissioner can move
+    # the start time and ESPN will not tell you — so watch the field and say so
+    # loudly if it shifts, because missing the start means autodrafting.
+    dset = ((league.get("settings") or {}).get("draftSettings")) or {}
+    ddet = league.get("draftDetail") or {}
+    when = dset.get("date")
+    with LOCK:
+        moved = (STATE.draft_time_seen is not None and when and
+                 when != STATE.draft_time_seen)
+        if when:
+            STATE.draft_time_seen = when
+        STATE.draft_info = dict(
+            starts_at=when,
+            starts_text=(time.strftime("%a %-d %b, %-I:%M %p", time.localtime(when / 1000))
+                         if when else None),
+            seconds_away=(when / 1000 - time.time()) if when else None,
+            in_progress=bool(ddet.get("inProgress")),
+            complete=bool(ddet.get("drafted")),
+            seconds_per_pick=dset.get("timePerSelection"),
+            picks_made=len(picks),
+            total_picks=TOTAL_PICKS,
+            moved=moved,
+            league=lname)
     if not picks:
         found = (f"you are \u201c{teams.get(my_id)}\u201d" if my_id is not None
                  else "could NOT identify your team")
