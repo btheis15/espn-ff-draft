@@ -470,6 +470,18 @@ def sync_once():
         for tid, nm in teams.items():
             if norm(nm) == norm(DATA["myteam"]):
                 my_id = tid
+
+    # ESPN's teamId is arbitrary (yours is 12 in a 10-team league), so map it onto
+    # our snake slots by name. Without this the roster a pick lands on is guessed
+    # from a local counter, and one unmatched name puts every later pick on the
+    # wrong team — corrupting exactly the opponent modelling the advice rests on.
+    slot_of = {}
+    for tid, nm in teams.items():
+        for sl, ours_nm in DATA["teamnames"].items():
+            if norm(nm) == norm(ours_nm):
+                slot_of[tid] = int(sl)
+    if my_id is not None:
+        slot_of.setdefault(my_id, MY_SLOT)
     picks = ((league.get("draftDetail") or {}).get("picks")) or []
     # ESPN pre-creates every pick slot with playerId -1 the moment a draft is
     # scheduled, so a league hours from starting otherwise reports 150 picks.
@@ -497,9 +509,20 @@ def sync_once():
             if ours in STATE.gone:
                 continue
             tid = pk.get("teamId")
-            mine = (my_id is not None and tid == my_id)
-            STATE.take(ours, mine=mine, owner=teams.get(tid), source="espn")
+            slot = slot_of.get(tid)
+            if slot is None:
+                # An unmapped team is better skipped than mis-assigned.
+                if teams.get(tid) not in unmatched:
+                    unmatched.append(f"team {teams.get(tid)}")
+                continue
+            # Anchor to ESPN's own pick number so our counter cannot drift.
+            o = pk.get("overallPickNumber")
+            if isinstance(o, int) and o > 0:
+                STATE.overall = o
+            STATE.take(ours, slot=slot, owner=teams.get(tid), source="espn")
             applied += 1
+        # after replaying, sit on the next unused slot
+        STATE._skip_keeper_slots()
         if unmatched:
             for u in unmatched:
                 if u not in STATE.unmatched:
