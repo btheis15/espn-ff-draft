@@ -689,10 +689,30 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, json.dumps({"error": "not found"}))
 
 
+def autostart_sync():
+    """
+    If credentials are already saved, start syncing on launch.
+
+    Requiring a click is a quiet failure mode: forget it on draft night and the
+    app sits in manual mode all evening looking perfectly healthy. Practice mode
+    still turns it off, which is the guard that matters.
+    """
+    cfg = load_config()
+    if not (cfg.get("league_id") and cfg.get("espn_s2") and cfg.get("swid")):
+        return
+    ok, msg = sync_once()
+    with LOCK:
+        STATE.sync_ok, STATE.sync_msg = ok, msg
+        STATE.last_sync = time.strftime("%-I:%M:%S %p")
+        STATE.sync_on = bool(ok)
+    print(f"  {'SYNC ON  ' if ok else 'sync off '} {msg}\n")
+
+
 def main():
     port = int(os.environ.get("PORT", "8777"))
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=sim_loop, daemon=True).start()
+    autostart_sync()
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}"
     print("\n  ┌────────────────────────────────────────────┐")
