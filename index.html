@@ -333,6 +333,13 @@ input[type=search]:focus{outline:none;border-color:#456099;box-shadow:0 0 0 3px 
 .tk.mine{background:rgba(45,212,167,.09)}
 .tk.mine .ow{color:var(--good);font-weight:750}
 
+.sh{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);
+  font-weight:800;margin:14px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.trow{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.tline{font-size:12.5px;color:var(--txt);margin-bottom:5px}
+.tbar{position:relative;height:7px;background:#131b2c;border-radius:4px}
+.tbar i{position:absolute;left:0;top:0;height:100%;background:var(--good);border-radius:4px}
+.tbar u{position:absolute;left:0;top:0;height:100%;border:1.5px solid #8fa0bd;border-radius:4px}
 /* modal */
 .mask{position:fixed;inset:0;background:rgba(4,6,11,.82);backdrop-filter:blur(7px);
   display:none;place-items:center;z-index:50;padding:20px}
@@ -381,6 +388,7 @@ input:focus{outline:none;border-color:#456099}
   <button class="btn simb" id="bSim">🎲 Practice</button>
   <button class="btn ghost" id="bSet">⚙ Settings</button>
   <button class="btn ghost" id="bUndo">↩ Undo</button>
+  <button class="btn ghost" id="bSeason">📋 Season</button>
   <button class="btn ghost" id="bReset">⟲ Reset</button>
 </header>
 
@@ -450,6 +458,16 @@ input:focus{outline:none;border-color:#456099}
       <h2>Picks as they land</h2>
       <div class="tick" id="tick"></div>
     </div>
+  </div>
+</div>
+
+<div class="mask" id="smask">
+  <div class="modal" style="width:min(860px,100%)">
+    <h3>After the draft — waivers &amp; trades</h3>
+    <p>Both are scored the same way: what actually raises the points your <b>starting lineup</b>
+       puts up. A player who would not crack your lineup is worth nothing, however good he looks.</p>
+    <div id="seasonBody"><div class="empty">Loading…</div></div>
+    <div class="mrow"><button class="btn ghost" id="sClose" style="flex:1">Close</button></div>
   </div>
 </div>
 
@@ -863,6 +881,39 @@ async function pick(player,mine){ render(await api('/api/pick',{player,mine})); 
 window.pick=pick;
 
 $('bUndo').onclick=async()=>render(await api('/api/undo',{}));
+$('sClose').onclick=()=>$('smask').classList.remove('on');
+$('smask').onclick=e=>{ if(e.target===$('smask')) $('smask').classList.remove('on'); };
+$('bSeason').onclick=async()=>{
+  $('smask').classList.add('on');
+  $('seasonBody').innerHTML='<div class="empty">Working…</div>';
+  const d=await api('/api/season',{});
+  if(!d.ready){
+    $('seasonBody').innerHTML=`<div class="note">Only ${d.roster_size} players on your roster —
+      this becomes useful once the draft is done.</div>`; return;
+  }
+  const lu=d.lineup.map(p=>`<div class="srow"><span class="tag" style="background:${POSC[p.pos]}">${p.pos}</span>
+      <span class="nm" style="flex:1">${esc(p.player)}</span><span class="scnum">bye ${p.bye}</span>
+      <span class="lsv">${p.fp.toFixed(0)}</span></div>`).join('');
+  const wv=d.waivers.length?d.waivers.map(w=>`<div class="srow">
+      <span class="tag" style="background:${POSC[w.pos]}">${w.pos}</span>
+      <span class="nm" style="flex:1">${esc(w.player)}</span>
+      <span class="scnum">${w.gain>0?'+'+w.gain.toFixed(0)+' to your lineup':'depth / bye cover'}</span>
+      <span class="lsv">${w.fp.toFixed(0)}</span>
+      ${w.drop?`<span class="scnum">drop ${esc(w.drop)}</span>`:''}</div>`).join('')
+      : '<div class="empty">Nobody on waivers would improve your lineup.</div>';
+  const tr=d.trades.length?d.trades.map(t=>`<div class="trow">
+      <div class="tline">${esc(t.line)}</div>
+      <div class="tbar"><i style="width:${Math.min(100,t.my_gain*3)}%"></i>
+        <u style="width:${Math.min(100,t.their_gain*3)}%"></u></div></div>`).join('')
+      : '<div class="empty">No trade improves both sides right now. That is the honest answer — a deal that only helps you will not get accepted.</div>';
+  $('seasonBody').innerHTML=`
+    <h4 class="sh">Your starting lineup — ${d.lineup_points.toFixed(0)} projected points</h4>${lu}
+    <h4 class="sh">Waiver targets</h4>${wv}
+    <h4 class="sh">Trades where both teams gain</h4>
+    <div class="sclegend" style="margin:0 0 6px">Bar shows your gain (solid) against theirs (outline).
+      A proposal only appears if the other manager's lineup improves too — that is the test of whether
+      they would actually accept it.</div>${tr}`;
+};
 $('bReset').onclick=async()=>{
   if(confirm('Clear every pick and start over?')) render(await api('/api/reset',{}));
 };

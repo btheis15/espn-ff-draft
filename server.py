@@ -24,6 +24,7 @@ import random
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import engine
+import season
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = json.load(open(os.path.join(HERE, "data.json")))
@@ -631,6 +632,28 @@ class Handler(BaseHTTPRequestHandler):
                 if ok:
                     STATE.last_sync = time.strftime("%-I:%M:%S %p")
                 return self._send(200, json.dumps({"ok": ok, "msg": msg, **STATE.snapshot()}))
+
+        if p == "/api/season":
+            # Post-draft view. Deliberately a separate endpoint: the draft path
+            # is what matters on draft night and nothing here can disturb it.
+            with LOCK:
+                me = STATE.my_roster
+                rostered = [pl for sl in STATE.rosters for pl in STATE.rosters[sl]]
+                others = {DATA["teamnames"].get(str(sl), f"Slot {sl}"): STATE.rosters[sl]
+                          for sl in STATE.rosters if sl != MY_SLOT and STATE.rosters[sl]}
+                body_out = dict(
+                    roster_size=len(me),
+                    lineup=[dict(slot=k, player=v["player"], pos=v["pos"],
+                                 fp=v["fp"], bye=v.get("bye"))
+                            for k, v in engine.best_lineup(me)],
+                    lineup_points=round(engine.lineup_points(me), 1),
+                    waivers=season.free_agents(DATA["players"], rostered, me, top_n=8),
+                    trades=[dict(t, line=season.describe(t))
+                            for t in season.find_trades(me, others, max_per_team=1,
+                                                        min_gain=3.0)][:8],
+                    ready=len(me) >= 10,
+                )
+                return self._send(200, json.dumps(body_out))
 
         if p == "/api/sim":
             with LOCK:
