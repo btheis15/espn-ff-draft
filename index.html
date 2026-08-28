@@ -280,7 +280,8 @@ body.sim .logo{background:linear-gradient(145deg,#c4b5fd,#8b5cf6 55%,#6d28d9);co
   font-weight:750;margin-bottom:6px}
 .mrow2{display:flex;align-items:baseline;gap:9px;padding:3px 0}
 .mk{width:112px;flex:none;font-size:11px;color:var(--dim);font-weight:650}
-.mv{width:32px;flex:none;font-size:12.5px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums}
+.mv{width:74px;flex:none;font-size:12.5px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums}
+.mv u{text-decoration:none;font-size:9px;font-weight:600;color:var(--dim2);margin-left:3px}
 .mw{font-size:10.5px;color:var(--dim2);line-height:1.35}
 .mrow2.best .mv{color:#8df0d0}
 .mrow2.best .mk{color:var(--txt)}
@@ -650,28 +651,30 @@ function valueCurve(pos, curve, highlight){
 // version showed a dot plot and then repeated the identical four numbers as
 // chips underneath, in different words — the same data twice, which read as two
 // unrelated things.
-function lensSpread(r){
+function lensSpread(r, poolSize){
   const rows=[
-    ['This app',        r.rank_vona,   'knows your roster, your keepers and how long until your next pick'],
-    ['Raw value',       r.rank_edge,   'points above a replacement starter — ignores your roster'],
-    ['The Athletic',    r.rank_sheet,  "their own board, exactly as published"],
-    ['ESPN draft market', r.rank_market,'where he actually gets drafted in real leagues'],
+    ['This app',        r.rank_vona,   'best pick for YOU — knows your roster, keepers and pick gap'],
+    ['Raw value',       r.rank_edge,   'most points over a replacement starter — ignores your roster'],
+    ['The Athletic',    r.rank_sheet,  'their published board, untouched'],
+    ['ESPN draft market', r.rank_market,'earliest actually drafted in real leagues'],
   ].filter(x=>x[1]);
   if(rows.length<2) return '';
   const vals=rows.map(x=>x[1]), lo=Math.min(...vals), hi=Math.max(...vals);
   const spread=hi-lo;
+  const N=poolSize||0;
   const body=rows.map(([k,v,why])=>
     `<div class="mrow2 ${v===lo?'best':''}">
        <span class="mk">${k}</span>
-       <span class="mv">#${v}</span>
+       <span class="mv">#${v}${N?`<u>of ${N}</u>`:''}</span>
        <span class="mw">${why}</span>
      </div>`).join('');
   const verdict = spread<=3
-    ? `<b>They broadly agree</b> — every method has him near the top of what's left.`
-    : `<b>They disagree.</b> ${rows.find(x=>x[1]===lo)[0]} has him best of what's left at #${lo}; ` +
-      `${rows.find(x=>x[1]===hi)[0]} has him #${hi}.`;
+    ? `<b>They broadly agree</b> — all four put him within ${spread} place${spread===1?'':'s'} of each other.`
+    : `<b>They disagree.</b> ${rows.find(x=>x[1]===lo)[0]} rates him ${lo}${lo===1?'st':'th'} best available; ` +
+      `${rows.find(x=>x[1]===hi)[0]} has him down at ${hi}${hi===1?'st':'th'}.`;
   return `<div class="mbox">
-    <div class="mhead">How each method ranks him — out of every player still on the board</div>
+    <div class="mhead">Each method ranks all ${N} players still on the board.
+      These are his positions in those four rankings — lower is better.</div>
     ${body}
     <div class="mfoot">${verdict}</div></div>`;
 }
@@ -882,7 +885,7 @@ function renderRecs(s){
       <ul class="why">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
       ${profileBar(r)}
       ${r.rank===1?`<div class="vcwrap"><div class="vctitle">Everyone still available at ${r.pos}, best first — bar height is how much better than a replacement starter</div>${valueCurve(r.pos,(S&&S.viz&&S.viz.curves[r.pos])||[],r.player)}</div>`:''}
-      ${lensSpread(r)}
+      ${lensSpread(r, s.available_count)}
 
       ${(S&&S.sync&&S.sync.on)?'':`<div class="act">
         <button class="mini pri" onclick="pick('${esc(r.player)}',true)">✓ I drafted him</button>
