@@ -86,6 +86,34 @@ def _needs(roster):
     return {pos: counts.get(pos, 0) - n for pos, n in engine.STARTERS.items()}
 
 
+# A preseason projection is not accurate to a point. A season gain smaller than
+# this is inside its error bars and should not be dressed up as an improvement.
+MEANINGFUL_GAIN = 25.0
+
+
+def _positional_damage(give, my_roster):
+    """
+    What the trade does to your thinnest position, which raw lineup points hide.
+
+    Two players can carry identical value over replacement at different
+    positions — a tight end at +73 and a receiver at +73 — and swapping them
+    reads as free. It is not, if one position has replacements available and the
+    other does not. This reports the drop at each position you are giving from.
+    """
+    out = []
+    for p in give:
+        pos = p["pos"]
+        rest = sorted([x for x in my_roster
+                       if x["pos"] == pos and x["player"] != p["player"]],
+                      key=lambda x: -x["fp"])
+        nxt = rest[0] if rest else None
+        out.append(dict(pos=pos, player=p["player"], fp=p["fp"],
+                        next_up=nxt["player"] if nxt else None,
+                        next_fp=nxt["fp"] if nxt else 0.0,
+                        drop=round(p["fp"] - (nxt["fp"] if nxt else 0.0), 1)))
+    return out
+
+
 def find_trades(my_roster, other_rosters, max_per_team=2, min_gain=3.0):
     """
     Trades where *both* sides' starting lineups improve.
@@ -115,12 +143,18 @@ def find_trades(my_roster, other_rosters, max_per_team=2, min_gain=3.0):
             their_gain = engine.lineup_points(them_after) - their_base
             if my_gain < min_gain or their_gain < min_gain:
                 return
+            dmg = _positional_damage(give, my_roster)
+            worst = max((d["drop"] for d in dmg), default=0.0)
             found.append(dict(
                 team=team,
                 give=[dict(player=p["player"], pos=p["pos"], fp=p["fp"]) for p in give],
                 get=[dict(player=p["player"], pos=p["pos"], fp=p["fp"]) for p in get],
                 my_gain=round(my_gain, 1), their_gain=round(their_gain, 1),
-                total=round(my_gain + their_gain, 1)))
+                total=round(my_gain + their_gain, 1),
+                damage=dmg, worst_drop=round(worst, 1),
+                verdict=("WORTH ASKING" if my_gain >= MEANINGFUL_GAIN and worst < my_gain
+                         else "MARGINAL" if my_gain < MEANINGFUL_GAIN
+                         else "COSTS YOU DEPTH")))
 
         # Only players worth moving: skip the deep bench on both sides.
         mine = sorted(my_roster, key=lambda p: -p["fp"])[:11]
@@ -159,8 +193,16 @@ def find_trades(my_roster, other_rosters, max_per_team=2, min_gain=3.0):
 
 
 def describe(t):
-    """One line a human can read, and send."""
+    """One line a human can read, with the catch stated rather than buried."""
     g = " + ".join(f"{p['player']} ({p['pos']})" for p in t["give"])
     r = " + ".join(f"{p['player']} ({p['pos']})" for p in t["get"])
-    return (f"Send {g} to {t['team']} for {r} — "
+    line = (f"Send {g} to {t['team']} for {r} — "
             f"you +{t['my_gain']:.0f}, they +{t['their_gain']:.0f}")
+    if t["verdict"] == "MARGINAL":
+        line += (f". Only {t['my_gain']:.0f} points over a season — inside the margin of error "
+                 f"on a projection, so not worth the risk.")
+    d = max(t["damage"], key=lambda x: x["drop"]) if t.get("damage") else None
+    if d and d["drop"] >= 40:
+        line += (f" It also drops your {d['pos']} from {d['player']} to "
+                 f"{d['next_up'] or 'nobody'} — a {d['drop']:.0f}-point hole.")
+    return line

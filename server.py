@@ -501,8 +501,12 @@ def sync_once():
     # our snake slots by name. Without this the roster a pick lands on is guessed
     # from a local counter, and one unmatched name puts every later pick on the
     # wrong team — corrupting exactly the opponent modelling the advice rests on.
-    slot_of = {}
+    # Prefer the pinned map: owners rename teams mid-season and two of ten had
+    # already done so within days of the draft. Names are the fallback.
+    slot_of = {int(k): int(v) for k, v in (cfg.get("team_slots") or {}).items()}
     for tid, nm in teams.items():
+        if tid in slot_of:
+            continue
         for sl, ours_nm in DATA["teamnames"].items():
             if norm(nm) == norm(ours_nm):
                 slot_of[tid] = int(sl)
@@ -577,10 +581,17 @@ def sync_once():
             for u in unmatched:
                 if u not in STATE.unmatched:
                     STATE.unmatched.append(u)
-    made = len(picks)
-    msg = f"Live · {made} real pick{'s' if made != 1 else ''} read from ESPN"
-    if applied:
-        msg += f" ({applied} new)"
+    # Keepers are formally recorded by ESPN the moment the room opens, so a
+    # draft where nobody has picked yet reports twenty picks. Counting those as
+    # activity makes a working sync look stuck.
+    live_made = len([p for p in picks
+                     if (p.get("overallPickNumber") or 0) not in KEEPER_SLOTS])
+    if live_made == 0:
+        msg = "Live · draft room open, no picks made yet"
+    else:
+        msg = f"Live · {live_made} pick{'s' if live_made != 1 else ''} made"
+        if applied:
+            msg += f" ({applied} new)"
     if my_id is None:
         msg += " · WARNING: could not identify your team (set team_id)"
     else:
@@ -602,6 +613,61 @@ def sim_loop():
         with LOCK:
             if STATE.sim_on and STATE.sim_auto and not STATE.on_the_clock():
                 STATE.sim_step()
+
+
+def load_rosters():
+    """
+    Rebuild every roster from what ESPN currently holds.
+
+    After the draft this is the only honest source: waivers, drops and trades all
+    move players, and replaying draft picks would freeze the league on draft
+    night. Uses the pinned teamId map, so a renamed team still lands correctly.
+    """
+    cfg = load_config()
+    if not cfg.get("league_id"):
+        return False, "No league configured."
+    try:
+        names = espn_player_names(cfg)
+        lid = cfg["league_id"]
+        url = (f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/"
+               f"{SEASON}/segments/0/leagues/{lid}?view=mRoster&view=mTeam")
+        league = espn_get(url, cfg, timeout=45)
+    except urllib.error.HTTPError as e:
+        return False, (f"ESPN refused the request ({e.code}) — cookies expired."
+                       if e.code in (401, 403) else f"ESPN returned HTTP {e.code}.")
+    except Exception as e:
+        return False, f"Could not reach ESPN: {type(e).__name__}: {e}"
+
+    slot_of = {int(k): int(v) for k, v in (cfg.get("team_slots") or {}).items()}
+    unmatched, filled = [], 0
+    with LOCK:
+        STATE.gone = {}
+        STATE.rosters = {sl: [] for sl in range(1, DATA["teams"] + 1)}
+        STATE.log = []
+        for t in (league.get("teams") or []):
+            tid = t.get("id")
+            slot = slot_of.get(tid)
+            label = t.get("name") or f"team {tid}"
+            if slot is None:
+                unmatched.append(label)
+                continue
+            for e in ((t.get("roster") or {}).get("entries") or []):
+                p = (e.get("playerPoolEntry") or {}).get("player") or {}
+                nm = p.get("fullName")
+                ours = resolve(nm) if nm else None
+                if not ours:
+                    if nm and nm not in unmatched:
+                        unmatched.append(nm)
+                    continue
+                STATE.gone[ours] = label
+                STATE.rosters[slot].append(PLAYERS[ours])
+                filled += 1
+        STATE.overall = TOTAL_PICKS + 1          # draft is behind us
+        STATE.unmatched = unmatched
+    msg = f"Loaded {filled} rostered players across the league"
+    if unmatched:
+        msg += f" · {len(unmatched)} name(s) unmatched"
+    return True, msg
 
 
 def sync_loop():
@@ -680,6 +746,11 @@ class Handler(BaseHTTPRequestHandler):
                 STATE.sync_ok, STATE.sync_msg = ok, msg
                 if ok:
                     STATE.last_sync = time.strftime("%-I:%M:%S %p")
+                return self._send(200, json.dumps({"ok": ok, "msg": msg, **STATE.snapshot()}))
+
+        if p == "/api/rosters":
+            ok, msg = load_rosters()
+            with LOCK:
                 return self._send(200, json.dumps({"ok": ok, "msg": msg, **STATE.snapshot()}))
 
         if p == "/api/season":
